@@ -70,6 +70,26 @@ test("idempotent submit retries the exact request while clarification does not",
   assert.equal(clarificationCalls, 1);
 });
 
+test("a per-request Known User session replaces static principal headers", async () => {
+  const calls = [];
+  const client = new HandrailClient({
+    ...enabledConfig,
+    issuer: undefined,
+    subject: undefined,
+    sessionToken: "application-session-001",
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return response(discovery);
+    },
+  }, {});
+  assert.equal(client.isEnabled(), true);
+  assert.deepEqual(client.getConfig().principal, { source: "known_user_session" });
+  await client.discover();
+  assert.equal(calls[0].init.headers["x-handrail-application-session"], "application-session-001");
+  assert.equal(calls[0].init.headers["x-handrail-principal-issuer"], undefined);
+  assert.equal(calls[0].init.headers["x-handrail-principal-subject"], undefined);
+});
+
 test("authentication and revocation failures are bounded and redact response secrets", async () => {
   for (const [status, code] of [[401, "assistant_bridge_credential_revoked"], [403, "assistant_bridge_principal_denied"]]) {
     let calls = 0;

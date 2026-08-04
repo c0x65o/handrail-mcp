@@ -167,11 +167,15 @@ export class HandrailClient {
     const headers = {
       accept: "application/json",
       authorization: `Bearer ${this.#token}`,
-      "x-handrail-principal-issuer": this.#config.issuer,
-      "x-handrail-principal-subject": this.#config.subject,
       "x-handrail-connector-version": CONNECTOR_VERSION,
       "x-handrail-api-contract-version": API_CONTRACT_VERSION,
     };
+    if (this.#config.sessionToken) {
+      headers["x-handrail-application-session"] = this.#config.sessionToken;
+    } else {
+      headers["x-handrail-principal-issuer"] = this.#config.issuer;
+      headers["x-handrail-principal-subject"] = this.#config.subject;
+    }
     const body = payload === undefined ? undefined : JSON.stringify(payload);
     if (body !== undefined) headers["content-type"] = "application/json";
     if (idempotencyKey) headers["idempotency-key"] = idempotencyKey;

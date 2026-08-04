@@ -6,7 +6,7 @@ prompts, and transports. The connector is deliberately stateless: Handrail
 owns authentication, authorization, policy, durable intake/status/audit data,
 PM and Work Request lifecycles, Knowledge Base content, and compatibility.
 
-Current connector version: `0.1.4`. Central API contract: `v1`.
+Current connector version: `0.1.6`. Central API contract: `v1`.
 
 ## Runtime contract
 
@@ -21,23 +21,26 @@ HANDRAIL_ASSISTANT_BRIDGE_VERSION=v1
 HANDRAIL_ASSISTANT_BRIDGE_PROJECT_ID=...
 HANDRAIL_ASSISTANT_BRIDGE_CAPABILITY_ID=...
 HANDRAIL_ASSISTANT_BRIDGE_TOKEN=...
-HANDRAIL_ASSISTANT_PRINCIPAL_ISSUER=...
-HANDRAIL_ASSISTANT_PRINCIPAL_SUBJECT=...
 ```
 
 The bearer credential is server-only. Do not put it in repository env files,
 browser/mobile configuration, tool arguments, logs, or assistant context.
-Issuer and subject are also server-bound configuration rather than tool
-arguments, so an assistant cannot select another identity through prompt text.
-Revocation and policy changes are enforced by the central API on each call.
+For Streamable HTTP, the host application forwards its current authenticated
+session in `X-Handrail-Application-Session` on each MCP request. The connector
+passes that session to Handrail, where the project's Known Users mapping derives
+the stable user ID and per-user grant. Identity is never a tool argument, so an
+assistant cannot select another user through prompt text. Static issuer/subject
+configuration remains a legacy compatibility path for non-Known-Users grants.
+Revocation, source-revision changes, and policy changes are enforced centrally
+on every call.
 
 ## CLI and transports
 
 Node.js 20 or newer is required.
 
 ```sh
-npx --package github:c0x65o/handrail-mcp#v0.1.4 handrail-mcp --transport stdio
-npx --package github:c0x65o/handrail-mcp#v0.1.4 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
+npx --package github:c0x65o/handrail-mcp#v0.1.6 handrail-mcp --transport stdio
+npx --package github:c0x65o/handrail-mcp#v0.1.6 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
 handrail-mcp --version
 ```
 
@@ -98,6 +101,6 @@ npm run release:artifact
 
 The approved Handrail release operation must verify and push that exact
 candidate before consumers use
-`github:c0x65o/handrail-mcp#v0.1.4`. npm publication is currently absent, so
+`github:c0x65o/handrail-mcp#v0.1.6`. npm publication is currently absent, so
 compatibility and install guidance must not claim an npm registry release.
 Never pin a moving branch.

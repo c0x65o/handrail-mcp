@@ -38,7 +38,15 @@ export async function startStreamableHttp({ host = "127.0.0.1", port = 3000, pat
       jsonRpcError(res, 405, "Method not allowed.");
       return;
     }
-    const connector = await createConnectorServer({ ...options, client: bootstrap.client, discovery: bootstrap.discovery });
+    const applicationSession = String(req.headers["x-handrail-application-session"] || "").trim();
+    const connector = applicationSession
+      ? await createConnectorServer({
+        ...options,
+        client: undefined,
+        discovery: undefined,
+        config: { ...(options.config || {}), sessionToken: applicationSession },
+      })
+      : await createConnectorServer({ ...options, client: bootstrap.client, discovery: bootstrap.discovery });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     active.add({ connector, transport });
     try {

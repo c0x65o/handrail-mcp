@@ -45,6 +45,7 @@ export function resolveConfig(overrides = {}, env = process.env) {
     projectId: optionalString(value(overrides, "projectId", "project_id", env, "HANDRAIL_ASSISTANT_BRIDGE_PROJECT_ID")),
     capabilityId: optionalString(value(overrides, "capabilityId", "capability_id", env, "HANDRAIL_ASSISTANT_BRIDGE_CAPABILITY_ID")),
     token: optionalString(value(overrides, "token", "token", env, "HANDRAIL_ASSISTANT_BRIDGE_TOKEN")),
+    sessionToken: optionalString(overrides.sessionToken ?? overrides.applicationSessionToken),
     issuer: optionalString(value(overrides, "issuer", "issuer", env, "HANDRAIL_ASSISTANT_PRINCIPAL_ISSUER")),
     subject: optionalString(value(overrides, "subject", "subject", env, "HANDRAIL_ASSISTANT_PRINCIPAL_SUBJECT")),
     requestTimeoutMs: positiveInteger(overrides.requestTimeoutMs ?? env.HANDRAIL_MCP_REQUEST_TIMEOUT_MS, 10_000, { min: 100 }),
@@ -53,8 +54,9 @@ export function resolveConfig(overrides = {}, env = process.env) {
     retryMaxDelayMs: positiveInteger(overrides.retryMaxDelayMs ?? env.HANDRAIL_MCP_RETRY_MAX_DELAY_MS, 1_000, { max: 30_000 }),
     fetch: overrides.fetch,
   };
-  const required = ["apiUrl", "contractVersion", "projectId", "capabilityId", "token", "issuer", "subject"];
+  const required = ["apiUrl", "contractVersion", "projectId", "capabilityId", "token"];
   const missingConfig = required.filter((key) => !resolved[key]);
+  if (!resolved.sessionToken && (!resolved.issuer || !resolved.subject)) missingConfig.push("known_user_session");
   let disabledReason = null;
   if (!enabledRequested) disabledReason = "disabled";
   else if (!resolved.apiUrl) disabledReason = rawApiUrl ? "invalid_api_url" : "missing_api_url";
@@ -71,7 +73,9 @@ export function publicConfig(config) {
     contract_version: config.contractVersion,
     project_id: config.projectId,
     capability_id: config.capabilityId,
-    principal: config.issuer && config.subject ? { issuer: config.issuer, subject: config.subject } : null,
+    principal: config.sessionToken
+      ? { source: "known_user_session" }
+      : config.issuer && config.subject ? { issuer: config.issuer, subject: config.subject, source: "legacy_static" } : null,
     credential_configured: Boolean(config.token),
     request_timeout_ms: config.requestTimeoutMs,
     max_retries: config.maxRetries,
