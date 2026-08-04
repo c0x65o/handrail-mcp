@@ -6,7 +6,7 @@ prompts, and transports. The connector is deliberately stateless: Handrail
 owns authentication, authorization, policy, durable intake/status/audit data,
 PM and Work Request lifecycles, Knowledge Base content, and compatibility.
 
-Current connector version: `0.1.0`. Central API contract: `v1`.
+Current connector version: `0.1.2`. Central API contract: `v1`.
 
 ## Runtime contract
 
@@ -36,8 +36,8 @@ Revocation and policy changes are enforced by the central API on each call.
 Node.js 20 or newer is required.
 
 ```sh
-npx --package @handrail/mcp@0.1.0 handrail-mcp --transport stdio
-npx --package @handrail/mcp@0.1.0 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
+npx --package github:c0x65o/handrail-mcp#v0.1.2 handrail-mcp --transport stdio
+npx --package github:c0x65o/handrail-mcp#v0.1.2 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
 handrail-mcp --version
 ```
 
@@ -96,6 +96,8 @@ immutable tarball and checksum with:
 npm run release:artifact
 ```
 
-The approved release workflow must publish and tag that exact candidate before
-consumers use `@handrail/mcp@0.1.0` or
-`github:c0x65o/handrail-mcp#v0.1.0`. Never pin a moving branch.
+The approved Handrail release operation must verify and push that exact
+candidate before consumers use
+`github:c0x65o/handrail-mcp#v0.1.2`. npm publication is currently absent, so
+compatibility and install guidance must not claim an npm registry release.
+Never pin a moving branch.

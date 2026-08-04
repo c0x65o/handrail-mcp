@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import test from "node:test";
 
 import packageJson from "../package.json" with { type: "json" };
+import release from "../RELEASE.json" with { type: "json" };
 import * as connector from "../src/index.js";
 
 const execFileAsync = promisify(execFile);
@@ -11,6 +12,13 @@ const execFileAsync = promisify(execFile);
 test("package entrypoint and CLI expose matching connector/API versions", async () => {
   assert.equal(connector.CONNECTOR_VERSION, packageJson.version);
   assert.equal(connector.API_CONTRACT_VERSION, "v1");
+  assert.equal(release.connector_version, packageJson.version);
+  assert.equal(release.api_contract_version, connector.API_CONTRACT_VERSION);
+  assert.equal(release.immutable_release_tag, `v${packageJson.version}`);
+  assert.equal(release.artifact, `handrail-mcp-${packageJson.version}.tgz`);
+  assert.equal(release.approved_git_pin, `github:c0x65o/handrail-mcp#v${packageJson.version}`);
+  assert.equal(release.npm_publication_status, "absent");
+  assert.equal(release.approved_package_pin, null);
   const { stdout } = await execFileAsync(process.execPath, ["src/cli.js", "--version"]);
   assert.match(stdout, new RegExp(`${packageJson.version}.*Handrail API v1`));
 });
