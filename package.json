@@ -1,0 +1,42 @@
+{
+  "name": "@handrail/mcp",
+  "version": "0.1.1",
+  "description": "The sole project-side MCP connector for the versioned Handrail REST API",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "handrail-mcp": "./src/cli.js"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client.js",
+    "./server": "./src/server.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "RELEASE.json"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:conformance": "node --test test/conformance.test.js",
+    "lint": "eslint src test",
+    "smoke": "node ./src/cli.js --version && npm pack --dry-run",
+    "release:artifact": "node ./scripts/build-release-artifact.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "eslint": "9.32.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

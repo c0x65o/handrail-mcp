@@ -1,0 +1,120 @@
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import test from "node:test";
+
+import { createConnectorServer } from "../src/server.js";
+import { TOOL_NAMES } from "../src/schemas.js";
+import { API_CONTRACT_VERSION } from "../src/version.js";
+import { connectInMemory, discovery, enabledConfig, requestRecord } from "./helpers.js";
+
+async function body(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {};
+}
+
+function send(res, payload, status = 200) {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(payload));
+}
+
+async function canonicalFixtureEndpoint() {
+  const calls = [];
+  const request = requestRecord({
+    requested_mode: "task",
+    parent_feature_id: null,
+    status: "needs_clarification",
+    terminal: false,
+    linked_pm_record: null,
+    clarification_history: [{ kind: "question", question: "parent_feature_id is required for task intake" }],
+  });
+  const server = createServer(async (req, res) => {
+    assert.equal(req.headers.authorization, `Bearer ${enabledConfig.token}`);
+    assert.equal(req.headers["x-handrail-principal-issuer"], enabledConfig.issuer);
+    assert.equal(req.headers["x-handrail-principal-subject"], enabledConfig.subject);
+    assert.equal(req.headers["x-handrail-api-contract-version"], API_CONTRACT_VERSION);
+    const url = new URL(req.url, "http://fixture");
+    calls.push([req.method, url.pathname, req.headers["idempotency-key"] || null]);
+    if (req.method === "GET" && url.pathname.endsWith("/discovery")) return send(res, discovery);
+    if (req.method === "POST" && url.pathname.endsWith("/requests")) {
+      const input = await body(req);
+      assert.equal(input.issuer, undefined, "identity must remain server-bound headers, not assistant input");
+      assert.equal(req.headers["idempotency-key"], input.idempotency_key);
+      return send(res, { request: { ...request, idempotency_key: input.idempotency_key }, replayed: calls.filter(([, path]) => path.endsWith("/requests")).length > 1 }, 201);
+    }
+    if (req.method === "GET" && url.pathname.endsWith(`/requests/${request.id}`)) return send(res, request);
+    if (req.method === "POST" && url.pathname.endsWith(`/requests/${request.id}/clarifications`)) {
+      const input = await body(req);
+      return send(res, {
+        ...request,
+        parent_feature_id: input.parent_feature_id,
+        status: "accepted",
+        terminal: true,
+        clarification_history: [...request.clarification_history, { kind: "response", response: input.response }],
+        linked_pm_record: { type: "task", id: "task-001" },
+      });
+    }
+    if (req.method === "POST" && url.pathname.endsWith(`/requests/${request.id}/cancel`)) {
+      return send(res, { ...request, status: "cancelled", terminal: true, cancellation_reason: (await body(req)).reason });
+    }
+    if (req.method === "GET" && url.pathname.endsWith("/resources/knowledge-base/bridge-contract")) {
+      return send(res, { contract_version: API_CONTRACT_VERSION, content: "Authoritative central contract body" });
+    }
+    if (req.method === "POST" && url.pathname.endsWith("/prompts/submit-change")) {
+      const input = await body(req);
+      return send(res, {
+        contract_version: API_CONTRACT_VERSION,
+        messages: [{ role: "user", content: { type: "text", text: `Submit ${input.arguments.goal} through Handrail.` } }],
+      });
+    }
+    send(res, { error: "not found" }, 404);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return {
+    calls,
+    baseUrl: `http://127.0.0.1:${server.address().port}/api/assistant-change-bridge/v1`,
+    close: () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
+  };
+}
+
+test("one canonical v1 HTTP fixture conforms across discovery, submit, lookup, clarification, cancellation, resources, and prompts", async () => {
+  const fixture = await canonicalFixtureEndpoint();
+  const connector = await createConnectorServer({ config: { ...enabledConfig, apiUrl: fixture.baseUrl } });
+  const connected = await connectInMemory(connector.server);
+  try {
+    const submitArgs = {
+      idempotency_key: "conversation-77:turn-4",
+      external_conversation_id: "conversation-77",
+      requested_mode: "task",
+      requested_delivery_ceiling: "intake_only",
+      title: "Add family dashboard",
+      parent_feature_id: null,
+    };
+    const first = await connected.client.callTool({ name: TOOL_NAMES.submit, arguments: submitArgs });
+    assert.equal(JSON.parse(first.content[0].text).request.status, "needs_clarification");
+    const replay = await connected.client.callTool({ name: TOOL_NAMES.submit, arguments: submitArgs });
+    assert.equal(JSON.parse(replay.content[0].text).replayed, true);
+    assert.equal(fixture.calls.filter(([, path]) => path.endsWith("/requests")).length, 2);
+
+    const lookup = await connected.client.callTool({ name: TOOL_NAMES.lookup, arguments: { request_id: "bridge-request-001" } });
+    assert.equal(JSON.parse(lookup.content[0].text).status, "needs_clarification");
+    const clarification = await connected.client.callTool({
+      name: TOOL_NAMES.clarify,
+      arguments: { request_id: "bridge-request-001", response: "Use approved feature", parent_feature_id: "feature-001" },
+    });
+    assert.equal(JSON.parse(clarification.content[0].text).status, "accepted");
+    const cancellation = await connected.client.callTool({
+      name: TOOL_NAMES.cancel,
+      arguments: { request_id: "bridge-request-001", reason: "Conversation withdrawn" },
+    });
+    assert.equal(JSON.parse(cancellation.content[0].text).status, "cancelled");
+
+    const resource = await connected.client.readResource({ uri: discovery.resources[0].uri });
+    assert.equal(resource.contents[0].text, "Authoritative central contract body");
+    const prompt = await connected.client.getPrompt({ name: discovery.prompts[0].name, arguments: { goal: "the change" } });
+    assert.equal(prompt.messages[0].content.text, "Submit the change through Handrail.");
+  } finally {
+    await connected.close();
+    await fixture.close();
+  }
+});
