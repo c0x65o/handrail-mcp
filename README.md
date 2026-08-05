@@ -4,7 +4,8 @@
 the versioned central Handrail REST API through standard MCP tools, resources,
 prompts, and transports. The connector is deliberately stateless: Handrail
 owns authentication, authorization, policy, durable request/status/audit data,
-PM and Work Request lifecycles, Knowledge Base content, and compatibility.
+historical PM audit data and the Work Request lifecycle, Knowledge Base content,
+and compatibility.
 
 Current connector version: `0.1.6`. Central API contract: `v1`.
 
@@ -86,7 +87,8 @@ npm run lint
 npm run smoke
 ```
 
-Tests cover the central API-to-MCP mapping, idempotency, durable statuses,
+Tests cover the central API-to-MCP mapping, Work Request-only submission,
+idempotency, durable statuses,
 clarification, safe cancellation, auth/revocation failures, redaction,
 default-deny behavior, version rejection, and both transport lifecycles. HTTP
 tests use a narrow service-boundary fixture, not a database fake. The central
