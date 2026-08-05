@@ -58,8 +58,10 @@ The discovery response decides which of these canonical tools are registered:
 - `assistant_change_bridge_v1_cancel`
 
 Submission is Work Request-only. The connector does not expose feature/task
-intake or a caller-selectable mode. Central policy turns `Ask` into a durable
-Pending Work Request and `Always` into a Work Request that starts automatically.
+intake or a caller-selectable mode. Central policy turns `Pending` into a
+durable Pending Work Request and `Automatic` into a Work Request that starts
+immediately. Staging is an independent permission: the assistant requests it
+only when the requested change calls for deployment.
 The only delivery ceilings a caller may request are `work_request` and
 `staging`; policy can always reduce the effective ceiling.
 
