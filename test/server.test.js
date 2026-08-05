@@ -70,13 +70,12 @@ test("MCP tools mirror discovery, bind server identity, and report both versions
   const submit = {
     idempotency_key: "conversation-1:turn-1",
     external_conversation_id: "conversation-1",
-    requested_mode: "feature",
-    requested_delivery_ceiling: "intake_only",
+    requested_delivery_ceiling: "work_request",
     title: "Add dashboard",
   };
   await connected.client.callTool({ name: TOOL_NAMES.submit, arguments: submit });
   await connected.client.callTool({ name: TOOL_NAMES.lookup, arguments: { request_id: "bridge-request-001" } });
-  await connected.client.callTool({ name: TOOL_NAMES.clarify, arguments: { request_id: "bridge-request-001", response: "Use the existing feature" } });
+  await connected.client.callTool({ name: TOOL_NAMES.clarify, arguments: { request_id: "bridge-request-001", response: "Keep the change bounded" } });
   await connected.client.callTool({ name: TOOL_NAMES.cancel, arguments: { request_id: "bridge-request-001", reason: "Withdrawn" } });
   assert.deepEqual(client.calls.slice(0, 4).map(([name]) => name), ["submit", "lookup", "clarify", "cancel"]);
   assert.deepEqual(client.calls[0][1], submit);

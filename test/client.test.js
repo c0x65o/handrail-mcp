@@ -46,8 +46,7 @@ test("idempotent submit retries the exact request while clarification does not",
   const result = await client.submit({
     idempotency_key: "conversation-1:turn-1",
     external_conversation_id: "conversation-1",
-    requested_mode: "feature",
-    requested_delivery_ceiling: "intake_only",
+    requested_delivery_ceiling: "work_request",
     title: "Add dashboard",
   });
   assert.equal(result.replayed, true);

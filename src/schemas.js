@@ -16,11 +16,9 @@ export const TOOL_SCHEMAS = Object.freeze({
   submit: {
     idempotency_key: z.string().min(1).max(255),
     external_conversation_id: z.string().min(1).max(512),
-    requested_mode: z.enum(["feature", "task", "work_request"]),
-    requested_delivery_ceiling: z.enum(["intake_only", "work_request", "staging"]),
+    requested_delivery_ceiling: z.enum(["work_request", "staging"]),
     title: z.string().min(1).max(500),
     description: nullableString,
-    parent_feature_id: nullableString,
     priority: nullableString,
     category: z.enum(["task", "feature", "bug"]).nullable().optional(),
     run_codex: z.boolean().nullable().optional(),
@@ -35,7 +33,6 @@ export const TOOL_SCHEMAS = Object.freeze({
     response: z.string().min(1).max(20_000),
     title: nullableString,
     description: nullableString,
-    parent_feature_id: nullableString,
   },
   cancel: {
     ...requestId,
@@ -55,7 +52,7 @@ export const TOOL_DEFINITIONS = Object.freeze([
     operation: "submit",
     name: TOOL_NAMES.submit,
     title: "Submit a Handrail change",
-    description: "Submit one idempotent, policy-bounded change to the central Handrail API.",
+    description: "Submit one idempotent canonical Work Request. Central policy decides whether it is held pending or starts automatically.",
     annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false, openWorldHint: false },
   },
   {

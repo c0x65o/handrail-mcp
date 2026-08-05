@@ -21,12 +21,11 @@ function send(res, payload, status = 200) {
 async function canonicalFixtureEndpoint() {
   const calls = [];
   const request = requestRecord({
-    requested_mode: "task",
-    parent_feature_id: null,
     status: "needs_clarification",
     terminal: false,
+    linked_work_request: null,
     linked_pm_record: null,
-    clarification_history: [{ kind: "question", question: "parent_feature_id is required for task intake" }],
+    clarification_history: [{ kind: "question", question: "Please provide a bounded implementation description" }],
   });
   const server = createServer(async (req, res) => {
     assert.equal(req.headers.authorization, `Bearer ${enabledConfig.token}`);
@@ -47,11 +46,11 @@ async function canonicalFixtureEndpoint() {
       const input = await body(req);
       return send(res, {
         ...request,
-        parent_feature_id: input.parent_feature_id,
-        status: "accepted",
-        terminal: true,
+        description: input.description,
+        status: "needs_attention",
+        terminal: false,
         clarification_history: [...request.clarification_history, { kind: "response", response: input.response }],
-        linked_pm_record: { type: "task", id: "task-001" },
+        linked_work_request: { id: "work-request-001" },
       });
     }
     if (req.method === "POST" && url.pathname.endsWith(`/requests/${request.id}/cancel`)) {
@@ -85,10 +84,8 @@ test("one canonical v1 HTTP fixture conforms across discovery, submit, lookup, c
     const submitArgs = {
       idempotency_key: "conversation-77:turn-4",
       external_conversation_id: "conversation-77",
-      requested_mode: "task",
-      requested_delivery_ceiling: "intake_only",
+      requested_delivery_ceiling: "work_request",
       title: "Add family dashboard",
-      parent_feature_id: null,
     };
     const first = await connected.client.callTool({ name: TOOL_NAMES.submit, arguments: submitArgs });
     assert.equal(JSON.parse(first.content[0].text).request.status, "needs_clarification");
@@ -100,9 +97,9 @@ test("one canonical v1 HTTP fixture conforms across discovery, submit, lookup, c
     assert.equal(JSON.parse(lookup.content[0].text).status, "needs_clarification");
     const clarification = await connected.client.callTool({
       name: TOOL_NAMES.clarify,
-      arguments: { request_id: "bridge-request-001", response: "Use approved feature", parent_feature_id: "feature-001" },
+      arguments: { request_id: "bridge-request-001", response: "Keep it bounded", description: "Add the approved dashboard change" },
     });
-    assert.equal(JSON.parse(clarification.content[0].text).status, "accepted");
+    assert.equal(JSON.parse(clarification.content[0].text).status, "needs_attention");
     const cancellation = await connected.client.callTool({
       name: TOOL_NAMES.cancel,
       arguments: { request_id: "bridge-request-001", reason: "Conversation withdrawn" },

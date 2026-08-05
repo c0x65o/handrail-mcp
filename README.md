@@ -3,7 +3,7 @@
 `@handrail/mcp` is the sole project-side MCP connector for Handrail. It exposes
 the versioned central Handrail REST API through standard MCP tools, resources,
 prompts, and transports. The connector is deliberately stateless: Handrail
-owns authentication, authorization, policy, durable intake/status/audit data,
+owns authentication, authorization, policy, durable request/status/audit data,
 PM and Work Request lifecycles, Knowledge Base content, and compatibility.
 
 Current connector version: `0.1.6`. Central API contract: `v1`.
@@ -55,6 +55,12 @@ The discovery response decides which of these canonical tools are registered:
 - `assistant_change_bridge_v1_lookup`
 - `assistant_change_bridge_v1_clarify`
 - `assistant_change_bridge_v1_cancel`
+
+Submission is Work Request-only. The connector does not expose feature/task
+intake or a caller-selectable mode. Central policy turns `Ask` into a durable
+Pending Work Request and `Always` into a Work Request that starts automatically.
+The only delivery ceilings a caller may request are `work_request` and
+`staging`; policy can always reduce the effective ceiling.
 
 Knowledge Base resources and prompt descriptors are also obtained from central
 discovery. Their bodies are fetched from same-origin paths beneath the bound
