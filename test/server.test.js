@@ -66,6 +66,15 @@ test("MCP tools mirror discovery, bind server identity, and report both versions
   assert.equal(discovered.contract_version, API_CONTRACT_VERSION);
   assert.equal(discovered.connector.connector_version, CONNECTOR_VERSION);
   assert.equal(discovered.connector.api_contract_version, API_CONTRACT_VERSION);
+  assert.equal(discovered.principal.authenticated, true);
+  assert.equal(discovered.principal.access_level, "custom");
+  const submitTool = tools.find((tool) => tool.name === TOOL_NAMES.submit);
+  assert.deepEqual(submitTool.inputSchema.properties.priority.anyOf[0].enum, [
+    "low",
+    "medium",
+    "high",
+    "urgent",
+  ]);
 
   const submit = {
     idempotency_key: "conversation-1:turn-1",

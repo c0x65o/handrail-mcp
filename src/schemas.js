@@ -19,7 +19,7 @@ export const TOOL_SCHEMAS = Object.freeze({
     requested_delivery_ceiling: z.enum(["work_request", "staging"]),
     title: z.string().min(1).max(500),
     description: nullableString,
-    priority: nullableString,
+    priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
     category: z.enum(["task", "feature", "bug"]).nullable().optional(),
     run_codex: z.boolean().nullable().optional(),
     ci_cd: z.boolean().nullable().optional(),
@@ -45,7 +45,7 @@ export const TOOL_DEFINITIONS = Object.freeze([
     operation: "discover",
     name: TOOL_NAMES.discover,
     title: "Discover Handrail policy",
-    description: "Report connector/API versions and the central default-deny capability and principal policy.",
+    description: "Report connector/API versions plus the central principal authentication state, resolved access level, and default-deny capability policy.",
     annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   },
   {
@@ -59,7 +59,7 @@ export const TOOL_DEFINITIONS = Object.freeze([
     operation: "lookup",
     name: TOOL_NAMES.lookup,
     title: "Look up Handrail status",
-    description: "Look up durable status and evidence for a change owned by this bound principal.",
+    description: "Look up and monitor durable status, linked Work Request state, and evidence for a change owned by this bound principal.",
     annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   },
   {

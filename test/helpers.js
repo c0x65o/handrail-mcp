@@ -27,7 +27,13 @@ export const discovery = Object.freeze({
     environment: "staging",
     kb_slugs: [],
   },
-  principal: { issuer: enabledConfig.issuer, subject: enabledConfig.subject },
+  principal: {
+    issuer: enabledConfig.issuer,
+    subject: enabledConfig.subject,
+    authenticated: true,
+    authentication_method: "principal_grant",
+    access_level: "custom",
+  },
   policy: {
     allowed_modes: ["work_request"],
     delivery_ceiling: "staging",

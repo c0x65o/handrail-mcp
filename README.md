@@ -34,6 +34,9 @@ assistant cannot select another user through prompt text. Static issuer/subject
 configuration remains a legacy compatibility path for non-Known-Users grants.
 Revocation, source-revision changes, and policy changes are enforced centrally
 on every call.
+Successful discovery explicitly reports `principal.authenticated`, the
+authentication method, and the resolved `access_level` (`default`, `user`,
+`full_access`, or `custom`) alongside the effective policy.
 
 ## CLI and transports
 
@@ -64,6 +67,9 @@ immediately. Staging is an independent permission: the assistant requests it
 only when the requested change calls for deployment.
 The only delivery ceilings a caller may request are `work_request` and
 `staging`; policy can always reduce the effective ceiling.
+Submission priorities use the canonical `low`, `medium`, `high`, and `urgent`
+tiers. After submission, use the returned bridge request ID with `lookup` to
+monitor the linked Work Request and its durable execution evidence.
 
 Knowledge Base resources and prompt descriptors are also obtained from central
 discovery. Their bodies are fetched from same-origin paths beneath the bound
