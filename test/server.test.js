@@ -75,6 +75,15 @@ test("MCP tools mirror discovery, bind server identity, and report both versions
     "high",
     "urgent",
   ]);
+  assert.deepEqual(submitTool.inputSchema.properties.requested_delivery_ceiling.enum, [
+    "work_request",
+    "staging",
+    "production",
+  ]);
+  assert.deepEqual(submitTool.inputSchema.properties.auto_deploy_env.anyOf[0].enum, [
+    "staging",
+    "production",
+  ]);
 
   const submit = {
     idempotency_key: "conversation-1:turn-1",
