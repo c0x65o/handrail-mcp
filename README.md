@@ -65,8 +65,10 @@ intake or a caller-selectable mode. Central policy turns `Pending` into a
 durable Pending Work Request and `Automatic` into a Work Request that starts
 immediately. Staging is an independent permission: the assistant requests it
 only when the requested change calls for deployment.
-The only delivery ceilings a caller may request are `work_request` and
-`staging`; policy can always reduce the effective ceiling.
+The delivery ceilings a caller may request are `work_request`, `staging`, and
+`production`; policy can always reduce the effective ceiling. Production is a
+separate, default-deny permission and never bypasses the canonical Work Request,
+required validation, or production deployment gates.
 Submission priorities use the canonical `low`, `medium`, `high`, and `urgent`
 tiers. After submission, use the returned bridge request ID with `lookup` to
 monitor the linked Work Request and its durable execution evidence.

@@ -16,7 +16,7 @@ export const TOOL_SCHEMAS = Object.freeze({
   submit: {
     idempotency_key: z.string().min(1).max(255),
     external_conversation_id: z.string().min(1).max(512),
-    requested_delivery_ceiling: z.enum(["work_request", "staging"]),
+    requested_delivery_ceiling: z.enum(["work_request", "staging", "production"]),
     title: z.string().min(1).max(500),
     description: nullableString,
     priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
@@ -25,7 +25,7 @@ export const TOOL_SCHEMAS = Object.freeze({
     ci_cd: z.boolean().nullable().optional(),
     target_check_ids: z.array(z.string().min(1).max(160)).max(100).nullable().optional(),
     auto_commit_push: z.boolean().nullable().optional(),
-    auto_deploy_env: z.literal("staging").nullable().optional(),
+    auto_deploy_env: z.enum(["staging", "production"]).nullable().optional(),
   },
   lookup: requestId,
   clarify: {
