@@ -42,6 +42,18 @@ async function canonicalFixtureEndpoint() {
       return send(res, { request: { ...request, idempotency_key: input.idempotency_key }, replayed: calls.filter(([, path]) => path.endsWith("/requests")).length > 1 }, 201);
     }
     if (req.method === "GET" && url.pathname.endsWith(`/requests/${request.id}`)) return send(res, request);
+    if (req.method === "GET" && url.pathname.endsWith(`/requests/${request.id}/release-status`)) {
+      return send(res, {
+        contract_version: API_CONTRACT_VERSION,
+        bridge_request_id: request.id,
+        linked_work_request: request.linked_work_request,
+        release_tracking: {
+          comparison_basis: "full_commit_sha",
+          auto_commit: { commits: [{ commit_sha: "abcdef1234567890", version: "1.2.3" }] },
+          environments: [{ environment: "production", deployment_state: "not_deployed", contains_change: false }],
+        },
+      });
+    }
     if (req.method === "POST" && url.pathname.endsWith(`/requests/${request.id}/clarifications`)) {
       const input = await body(req);
       return send(res, {
@@ -95,6 +107,11 @@ test("one canonical v1 HTTP fixture conforms across discovery, submit, lookup, c
 
     const lookup = await connected.client.callTool({ name: TOOL_NAMES.lookup, arguments: { request_id: "bridge-request-001" } });
     assert.equal(JSON.parse(lookup.content[0].text).status, "needs_clarification");
+    const releaseStatus = await connected.client.callTool({ name: TOOL_NAMES.releaseStatus, arguments: { request_id: "bridge-request-001" } });
+    const release = JSON.parse(releaseStatus.content[0].text).release_tracking;
+    assert.equal(release.auto_commit.commits[0].commit_sha, "abcdef1234567890");
+    assert.equal(release.auto_commit.commits[0].version, "1.2.3");
+    assert.equal(release.environments[0].deployment_state, "not_deployed");
     const clarification = await connected.client.callTool({
       name: TOOL_NAMES.clarify,
       arguments: { request_id: "bridge-request-001", response: "Keep it bounded", description: "Add the approved dashboard change" },

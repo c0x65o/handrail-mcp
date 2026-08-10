@@ -7,7 +7,7 @@ owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.1.6`. Central API contract: `v1`.
+Current connector version: `0.1.7`. Central API contract: `v1`.
 
 ## Runtime contract
 
@@ -43,8 +43,8 @@ authentication method, and the resolved `access_level` (`default`, `user`,
 Node.js 20 or newer is required.
 
 ```sh
-npx --package github:c0x65o/handrail-mcp#v0.1.6 handrail-mcp --transport stdio
-npx --package github:c0x65o/handrail-mcp#v0.1.6 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
+npx --package github:c0x65o/handrail-mcp#v0.1.7 handrail-mcp --transport stdio
+npx --package github:c0x65o/handrail-mcp#v0.1.7 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
 handrail-mcp --version
 ```
 
@@ -57,6 +57,7 @@ The discovery response decides which of these canonical tools are registered:
 - `assistant_change_bridge_v1_discover`
 - `assistant_change_bridge_v1_submit`
 - `assistant_change_bridge_v1_lookup`
+- `assistant_change_bridge_v1_release_status`
 - `assistant_change_bridge_v1_clarify`
 - `assistant_change_bridge_v1_cancel`
 
@@ -71,7 +72,12 @@ separate, default-deny permission and never bypasses the canonical Work Request,
 required validation, or production deployment gates.
 Submission priorities use the canonical `low`, `medium`, `high`, and `urgent`
 tiers. After submission, use the returned bridge request ID with `lookup` to
-monitor the linked Work Request and its durable execution evidence.
+monitor the linked Work Request and its durable execution evidence. Lookup
+includes a canonical `release_tracking` projection. The dedicated
+`release_status` tool reports the full auto-commit SHA, the version created by
+that commit, every recorded deployment of the change (including later manual
+deployments), and the current SHA/version on each configured environment
+target.
 
 Knowledge Base resources and prompt descriptors are also obtained from central
 discovery. Their bodies are fetched from same-origin paths beneath the bound
@@ -79,7 +85,7 @@ versioned API when invoked; no KB body or prompt implementation is packaged.
 
 ## Safety and errors
 
-Only discovery, lookup, idempotent submit, and safe cancellation receive
+Only discovery, lookup, release status, idempotent submit, and safe cancellation receive
 bounded retries (`2` by default). Clarification is not retried because it is
 not idempotent. Retryable responses are limited to 408, 425, 429, and selected
 5xx statuses. Requests time out after 10 seconds by default. Error response
@@ -119,6 +125,6 @@ npm run release:artifact
 
 The approved Handrail release operation must verify and push that exact
 candidate before consumers use
-`github:c0x65o/handrail-mcp#v0.1.6`. npm publication is currently absent, so
+`github:c0x65o/handrail-mcp#v0.1.7`. npm publication is currently absent, so
 compatibility and install guidance must not claim an npm registry release.
 Never pin a moving branch.

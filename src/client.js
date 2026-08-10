@@ -116,6 +116,11 @@ export class HandrailClient {
     return this.#request(`requests/${encodeURIComponent(request_id)}`, { method: "GET", retrySafe: true });
   }
 
+  async releaseStatus({ request_id }) {
+    if (!this.isEnabled()) return null;
+    return this.#request(`requests/${encodeURIComponent(request_id)}/release-status`, { method: "GET", retrySafe: true });
+  }
+
   async clarify({ request_id, ...input }) {
     if (!this.isEnabled()) return null;
     return this.#request(`requests/${encodeURIComponent(request_id)}/clarifications`, {

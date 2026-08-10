@@ -7,6 +7,7 @@ export const TOOL_NAMES = Object.freeze({
   discover: "assistant_change_bridge_v1_discover",
   submit: "assistant_change_bridge_v1_submit",
   lookup: "assistant_change_bridge_v1_lookup",
+  releaseStatus: "assistant_change_bridge_v1_release_status",
   clarify: "assistant_change_bridge_v1_clarify",
   cancel: "assistant_change_bridge_v1_cancel",
 });
@@ -28,6 +29,7 @@ export const TOOL_SCHEMAS = Object.freeze({
     auto_deploy_env: z.enum(["staging", "production"]).nullable().optional(),
   },
   lookup: requestId,
+  releaseStatus: requestId,
   clarify: {
     ...requestId,
     response: z.string().min(1).max(20_000),
@@ -60,6 +62,13 @@ export const TOOL_DEFINITIONS = Object.freeze([
     name: TOOL_NAMES.lookup,
     title: "Look up Handrail status",
     description: "Look up and monitor durable status, linked Work Request state, and evidence for a change owned by this bound principal.",
+    annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    operation: "releaseStatus",
+    name: TOOL_NAMES.releaseStatus,
+    title: "Track a Handrail release",
+    description: "Report the full auto-commit SHA and version, deployments of that change including later manual deployments, and the version currently deployed on every configured environment target.",
     annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   },
   {

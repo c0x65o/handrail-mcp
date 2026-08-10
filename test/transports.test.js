@@ -19,7 +19,7 @@ test("Streamable HTTP starts, serves MCP, and shuts down cleanly", async () => {
   const client = new Client({ name: "http-test", version: "1.0.0" });
   const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${address.port}/mcp`));
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 5);
+  assert.equal((await client.listTools()).tools.length, 6);
   await client.close();
   await running.close();
   assert.equal(running.server.listening, false);
@@ -47,7 +47,7 @@ test("Streamable HTTP binds central discovery to the current application session
     { requestInit: { headers: { "x-handrail-application-session": "session-clinton" } } },
   );
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 5);
+  assert.equal((await client.listTools()).tools.length, 6);
   assert.ok(centralCalls.length >= 1);
   assert.ok(centralCalls.every((call) => call.init.headers["x-handrail-application-session"] === "session-clinton"));
   assert.ok(centralCalls.every((call) => call.init.headers["x-handrail-principal-subject"] === undefined));
