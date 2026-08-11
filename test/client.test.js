@@ -69,6 +69,32 @@ test("idempotent submit retries the exact request while clarification does not",
   assert.equal(clarificationCalls, 1);
 });
 
+test("idempotency conflicts explain that distinct active requests need distinct keys", async () => {
+  const client = new HandrailClient({
+    ...enabledConfig,
+    fetch: async () => response({
+      error: "idempotency_key was already used for different intent",
+      code: "assistant_bridge_idempotency_conflict",
+      existing_request_id: "bridge-request-existing",
+    }, 409),
+  }, {});
+
+  await assert.rejects(client.submit({
+    idempotency_key: "conversation-1:reused-intent",
+    external_conversation_id: "conversation-1",
+    requested_delivery_ceiling: "work_request",
+    title: "A separate change",
+  }), (error) => {
+    assert.equal(error.code, "assistant_bridge_idempotency_conflict");
+    assert.equal(error.status, 409);
+    assert.match(error.message, /Multiple change requests may be active at the same time/);
+    assert.equal(error.response.existing_request_id, "bridge-request-existing");
+    assert.equal(error.response.multiple_active_requests_supported, true);
+    assert.match(error.response.resolution, /new stable idempotency_key/);
+    return true;
+  });
+});
+
 test("a per-request Known User session replaces static principal headers", async () => {
   const calls = [];
   const client = new HandrailClient({

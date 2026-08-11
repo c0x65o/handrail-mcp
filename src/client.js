@@ -14,6 +14,8 @@ const REQUEST_STATUSES = new Set([
   "failed",
 ]);
 const TERMINAL_STATUSES = new Set(["accepted", "succeeded", "cancelled", "failed"]);
+const IDEMPOTENCY_CONFLICT_MESSAGE = "This idempotency_key already belongs to a different change request. Multiple change requests may be active at the same time, but each distinct intent must use a new key. Reuse a key only to retry the exact same submission.";
+const IDEMPOTENCY_CONFLICT_RESOLUTION = "Submit the new intent with a new stable idempotency_key, such as external_conversation_id:user_message_id, and retain each returned request.id for independent lookup.";
 
 function compact(value) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined));
@@ -195,12 +197,24 @@ export class HandrailClient {
         const responsePayload = redactCredential(jsonOrText(await response.text()), this.#token);
         if (!response.ok) {
           const status = Number(response.status) || undefined;
-          const error = new HandrailApiError(errorMessage(responsePayload, status), {
-            code: responsePayload?.code || "assistant_bridge_http_error",
-            status,
-            retryable: RETRYABLE_STATUS.has(status),
-            response: responsePayload,
-          });
+          const code = responsePayload?.code || "assistant_bridge_http_error";
+          const idempotencyConflict = code === "assistant_bridge_idempotency_conflict";
+          const errorResponse = idempotencyConflict && responsePayload && typeof responsePayload === "object"
+            ? {
+              ...responsePayload,
+              multiple_active_requests_supported: true,
+              resolution: responsePayload.resolution || IDEMPOTENCY_CONFLICT_RESOLUTION,
+            }
+            : responsePayload;
+          const error = new HandrailApiError(
+            idempotencyConflict ? IDEMPOTENCY_CONFLICT_MESSAGE : errorMessage(responsePayload, status),
+            {
+              code,
+              status,
+              retryable: RETRYABLE_STATUS.has(status),
+              response: errorResponse,
+            },
+          );
           if (!error.retryable || attempt + 1 >= attempts) throw error;
           lastError = error;
           await this.#retryDelay(attempt, response);

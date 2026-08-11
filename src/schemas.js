@@ -15,8 +15,8 @@ export const TOOL_NAMES = Object.freeze({
 export const TOOL_SCHEMAS = Object.freeze({
   discover: {},
   submit: {
-    idempotency_key: z.string().min(1).max(255),
-    external_conversation_id: z.string().min(1).max(512),
+    idempotency_key: z.string().min(1).max(255).describe("Stable identity for exactly one change intent. Use a new key for each separate request, including while earlier requests are pending or running; reuse only for an exact retry. Prefer external_conversation_id:user_message_id (or another durable per-intent ID)."),
+    external_conversation_id: z.string().min(1).max(512).describe("Durable conversation identifier used to group requests for traceability. It is not an idempotency key, and many simultaneous requests may share it."),
     requested_delivery_ceiling: z.enum(["work_request", "staging", "production"]),
     title: z.string().min(1).max(500),
     description: nullableString,
@@ -54,14 +54,14 @@ export const TOOL_DEFINITIONS = Object.freeze([
     operation: "submit",
     name: TOOL_NAMES.submit,
     title: "Submit a Handrail change",
-    description: "Submit one idempotent canonical Work Request. Central policy decides whether it is held pending or starts automatically.",
+    description: "Submit one idempotent canonical Work Request. Multiple requests may be pending or running at once: use a new idempotency_key for every distinct change intent, even in the same conversation, and reuse a key only for an exact retry. Retain every returned request.id and look up each request independently. Central policy decides whether it is held pending or starts automatically.",
     annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     operation: "lookup",
     name: TOOL_NAMES.lookup,
     title: "Look up Handrail status",
-    description: "Look up and monitor durable status, linked Work Request state, and evidence for a change owned by this bound principal.",
+    description: "Look up and monitor durable status, linked Work Request state, and evidence for a change owned by this bound principal. When several requests are active, call this tool separately with each request.id returned by submit.",
     annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   },
   {

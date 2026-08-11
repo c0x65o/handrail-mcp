@@ -92,6 +92,10 @@ test("MCP tools mirror discovery, bind server identity, and report both versions
     "staging",
     "production",
   ]);
+  assert.match(submitTool.description, /Multiple requests may be pending or running at once/);
+  assert.match(submitTool.inputSchema.properties.idempotency_key.description, /new key for each separate request/);
+  assert.match(submitTool.inputSchema.properties.external_conversation_id.description, /many simultaneous requests may share it/);
+  assert.match(tools.find((tool) => tool.name === TOOL_NAMES.lookup).description, /each request\.id/);
 
   const submit = {
     idempotency_key: "conversation-1:turn-1",

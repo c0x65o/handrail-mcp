@@ -79,6 +79,14 @@ that commit, every recorded deployment of the change (including later manual
 deployments), and the current SHA/version on each configured environment
 target.
 
+Multiple change requests can be pending or running simultaneously, including
+within the same conversation. `external_conversation_id` groups those requests
+for traceability; it does not serialize them. Give every distinct user intent a
+new stable `idempotency_key`, ideally derived from the conversation ID plus a
+durable user-message or intent ID. Reuse that key only when retrying the exact
+same submission. Retain every returned `request.id` and call `lookup`
+independently for each active request.
+
 Knowledge Base resources and prompt descriptors are also obtained from central
 discovery. Their bodies are fetched from same-origin paths beneath the bound
 versioned API when invoked; no KB body or prompt implementation is packaged.
