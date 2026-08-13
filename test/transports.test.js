@@ -7,6 +7,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import { startStreamableHttp } from "../src/transports.js";
+import { TOOL_DEFINITIONS } from "../src/schemas.js";
 import { discovery, enabledConfig, response } from "./helpers.js";
 
 test("Streamable HTTP starts, serves MCP, and shuts down cleanly", async () => {
@@ -19,7 +20,7 @@ test("Streamable HTTP starts, serves MCP, and shuts down cleanly", async () => {
   const client = new Client({ name: "http-test", version: "1.0.0" });
   const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${address.port}/mcp`));
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 6);
+  assert.equal((await client.listTools()).tools.length, TOOL_DEFINITIONS.length);
   await client.close();
   await running.close();
   assert.equal(running.server.listening, false);
@@ -47,7 +48,7 @@ test("Streamable HTTP binds central discovery to the current application session
     { requestInit: { headers: { "x-handrail-application-session": "session-clinton" } } },
   );
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 6);
+  assert.equal((await client.listTools()).tools.length, TOOL_DEFINITIONS.length);
   assert.ok(centralCalls.length >= 1);
   assert.ok(centralCalls.every((call) => call.init.headers["x-handrail-application-session"] === "session-clinton"));
   assert.ok(centralCalls.every((call) => call.init.headers["x-handrail-principal-subject"] === undefined));

@@ -94,9 +94,9 @@ versioned API when invoked; no KB body or prompt implementation is packaged.
 
 ## Safety and errors
 
-Only discovery, lookup, release status, idempotent submit, and safe cancellation receive
-bounded retries (`2` by default). Clarification is not retried because it is
-not idempotent. Retryable responses are limited to 408, 425, 429, and selected
+Only discovery, principal-scoped list, lookup, release status, idempotent submit, and safe cancellation receive
+bounded retries (`2` by default). Clarification is non-idempotent and is not
+retried; binary attachment downloads are also single-attempt. Retryable responses are limited to 408, 425, 429, and selected
 5xx statuses. Requests time out after 10 seconds by default. Error response
 fields with credential-like keys are redacted.
 
@@ -113,7 +113,7 @@ npm run smoke
 ```
 
 Tests cover the central API-to-MCP mapping, Work Request-only submission,
-idempotency, durable statuses,
+idempotency, durable statuses, principal-scoped history and attachment downloads,
 clarification, safe cancellation, auth/revocation failures, redaction,
 default-deny behavior, version rejection, and both transport lifecycles. HTTP
 tests use a narrow service-boundary fixture, not a database fake. The central
