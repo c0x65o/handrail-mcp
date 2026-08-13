@@ -1,6 +1,6 @@
 {
   "name": "@handrail/mcp",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "The sole project-side MCP connector for the versioned Handrail REST API",
   "type": "module",
   "license": "UNLICENSED",

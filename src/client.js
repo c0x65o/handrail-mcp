@@ -118,6 +118,16 @@ export class HandrailClient {
     return this.#request(`requests/${encodeURIComponent(request_id)}`, { method: "GET", retrySafe: true });
   }
 
+  async list({ submission_kind, limit, offset } = {}) {
+    if (!this.isEnabled()) return null;
+    const query = new URLSearchParams();
+    if (submission_kind) query.set("submission_kind", submission_kind);
+    if (limit != null) query.set("limit", String(limit));
+    if (offset != null) query.set("offset", String(offset));
+    const suffix = query.size ? `?${query.toString()}` : "";
+    return this.#request(`requests${suffix}`, { method: "GET", retrySafe: true });
+  }
+
   async releaseStatus({ request_id }) {
     if (!this.isEnabled()) return null;
     return this.#request(`requests/${encodeURIComponent(request_id)}/release-status`, { method: "GET", retrySafe: true });
@@ -139,6 +149,35 @@ export class HandrailClient {
       payload: compact(input),
       retrySafe: true,
     });
+  }
+
+  async downloadAttachment({ request_id, attachment_id }) {
+    if (!this.isEnabled()) return null;
+    if (typeof this.#fetch !== "function") {
+      throw new HandrailApiError("A server-side fetch implementation is required.", { code: "assistant_bridge_fetch_unavailable" });
+    }
+    const response = await this.#fetch(
+      this.#url(`requests/${encodeURIComponent(request_id)}/attachments/${encodeURIComponent(attachment_id)}`),
+      { method: "GET", headers: this.#headers() },
+    );
+    if (!response.ok) {
+      const payload = redactCredential(jsonOrText(await response.text()), this.#token);
+      throw new HandrailApiError(errorMessage(payload, response.status), {
+        code: payload?.code || "assistant_bridge_http_error",
+        status: Number(response.status) || undefined,
+        retryable: RETRYABLE_STATUS.has(Number(response.status)),
+        response: payload,
+      });
+    }
+    const disposition = response.headers?.get?.("content-disposition") || "";
+    const filename = disposition.match(/filename="([^"]*)"/iu)?.[1] || null;
+    const data = new Uint8Array(await response.arrayBuffer());
+    return {
+      data,
+      filename,
+      mime_type: response.headers?.get?.("content-type") || "application/octet-stream",
+      size_bytes: data.byteLength,
+    };
   }
 
   async readResource(descriptor) {
@@ -167,10 +206,7 @@ export class HandrailClient {
     return resolved.toString();
   }
 
-  async #request(path, { method, payload, idempotencyKey, retrySafe }) {
-    if (typeof this.#fetch !== "function") {
-      throw new HandrailApiError("A server-side fetch implementation is required.", { code: "assistant_bridge_fetch_unavailable" });
-    }
+  #headers() {
     const headers = {
       accept: "application/json",
       authorization: `Bearer ${this.#token}`,
@@ -183,6 +219,14 @@ export class HandrailClient {
       headers["x-handrail-principal-issuer"] = this.#config.issuer;
       headers["x-handrail-principal-subject"] = this.#config.subject;
     }
+    return headers;
+  }
+
+  async #request(path, { method, payload, idempotencyKey, retrySafe }) {
+    if (typeof this.#fetch !== "function") {
+      throw new HandrailApiError("A server-side fetch implementation is required.", { code: "assistant_bridge_fetch_unavailable" });
+    }
+    const headers = this.#headers();
     const body = payload === undefined ? undefined : JSON.stringify(payload);
     if (body !== undefined) headers["content-type"] = "application/json";
     if (idempotencyKey) headers["idempotency-key"] = idempotencyKey;

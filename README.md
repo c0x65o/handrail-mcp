@@ -7,7 +7,7 @@ owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.1.7`. Central API contract: `v1`.
+Current connector version: `0.1.8`. Central API contract: `v1`.
 
 ## Runtime contract
 
@@ -43,8 +43,8 @@ authentication method, and the resolved `access_level` (`default`, `user`,
 Node.js 20 or newer is required.
 
 ```sh
-npx --package github:c0x65o/handrail-mcp#v0.1.7 handrail-mcp --transport stdio
-npx --package github:c0x65o/handrail-mcp#v0.1.7 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
+npx --package github:c0x65o/handrail-mcp#v0.1.8 handrail-mcp --transport stdio
+npx --package github:c0x65o/handrail-mcp#v0.1.8 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
 handrail-mcp --version
 ```
 
@@ -56,6 +56,7 @@ The discovery response decides which of these canonical tools are registered:
 
 - `assistant_change_bridge_v1_discover`
 - `assistant_change_bridge_v1_submit`
+- `assistant_change_bridge_v1_list`
 - `assistant_change_bridge_v1_lookup`
 - `assistant_change_bridge_v1_release_status`
 - `assistant_change_bridge_v1_clarify`
@@ -133,6 +134,6 @@ npm run release:artifact
 
 The approved Handrail release operation must verify and push that exact
 candidate before consumers use
-`github:c0x65o/handrail-mcp#v0.1.7`. npm publication is currently absent, so
+`github:c0x65o/handrail-mcp#v0.1.8`. npm publication is currently absent, so
 compatibility and install guidance must not claim an npm registry release.
 Never pin a moving branch.

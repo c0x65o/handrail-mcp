@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { ContractVersionError, HandrailApiError } from "../src/errors.js";
 import { HandrailClient } from "../src/client.js";
+import { API_CONTRACT_VERSION } from "../src/version.js";
 import { discovery, enabledConfig, requestRecord, response } from "./helpers.js";
 
 test("default-deny and incomplete configurations make no HTTP requests", async () => {
@@ -155,6 +156,42 @@ test("durable response validation accepts lifecycle statuses and rejects false t
     fetch: async () => response(requestRecord({ status: "pending", terminal: true })),
   }, {});
   await assert.rejects(invalid.lookup({ request_id: "bridge-request-001" }), { code: "assistant_bridge_contract_mismatch" });
+});
+
+test("principal history and attachment downloads stay inside the bound API", async () => {
+  const calls = [];
+  const client = new HandrailClient({
+    ...enabledConfig,
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      if (url.includes("/attachments/")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: (name) => ({
+            "content-type": "image/png",
+            "content-disposition": "inline; filename=\"screen.png\"",
+          })[String(name).toLowerCase()] || null },
+          arrayBuffer: async () => Uint8Array.from([0x89, 0x50, 0x4e, 0x47]).buffer,
+        };
+      }
+      return response({
+        contract_version: API_CONTRACT_VERSION,
+        requests: [requestRecord({ submission_kind: "enhancement" })],
+        pagination: { limit: 10, offset: 5, total: 6, has_more: false },
+      });
+    },
+  }, {});
+
+  const history = await client.list({ submission_kind: "enhancement", limit: 10, offset: 5 });
+  assert.equal(history.requests[0].submission_kind, "enhancement");
+  assert.match(calls[0].url, /requests\?submission_kind=enhancement&limit=10&offset=5$/);
+  const image = await client.downloadAttachment({ request_id: "request/1", attachment_id: "attachment/1" });
+  assert.equal(image.filename, "screen.png");
+  assert.equal(image.mime_type, "image/png");
+  assert.deepEqual([...image.data], [0x89, 0x50, 0x4e, 0x47]);
+  assert.match(calls[1].url, /requests\/request%2F1\/attachments\/attachment%2F1$/);
+  assert.equal(calls[1].init.headers.authorization, `Bearer ${enabledConfig.token}`);
 });
 
 test("central resource endpoints cannot redirect credentials outside the bound API", async () => {
