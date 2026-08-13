@@ -194,6 +194,28 @@ test("principal history and attachment downloads stay inside the bound API", asy
   assert.equal(calls[1].init.headers.authorization, `Bearer ${enabledConfig.token}`);
 });
 
+test("dismissal is idempotent and remains inside the bound principal API", async () => {
+  const calls = [];
+  const client = new HandrailClient({
+    ...enabledConfig,
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return response({
+        contract_version: API_CONTRACT_VERSION,
+        request_id: "request/1",
+        dismissed_at: "2026-08-13T20:00:00.000Z",
+        underlying_request_preserved: true,
+      });
+    },
+  }, {});
+
+  const dismissed = await client.dismiss({ request_id: "request/1" });
+  assert.equal(dismissed.underlying_request_preserved, true);
+  assert.match(calls[0].url, /requests\/request%2F1\/dismiss$/);
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, "{}");
+});
+
 test("central resource endpoints cannot redirect credentials outside the bound API", async () => {
   const client = new HandrailClient({ ...enabledConfig, fetch: async () => assert.fail("fetch must not run") }, {});
   await assert.rejects(

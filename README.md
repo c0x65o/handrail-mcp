@@ -43,8 +43,8 @@ authentication method, and the resolved `access_level` (`default`, `user`,
 Node.js 20 or newer is required.
 
 ```sh
-npx --package github:c0x65o/handrail-mcp#v0.1.8 handrail-mcp --transport stdio
-npx --package github:c0x65o/handrail-mcp#v0.1.8 handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
+npx --package github:c0x65o/handrail-mcp handrail-mcp --transport stdio
+npx --package github:c0x65o/handrail-mcp handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
 handrail-mcp --version
 ```
 
@@ -59,6 +59,7 @@ The discovery response decides which of these canonical tools are registered:
 - `assistant_change_bridge_v1_list`
 - `assistant_change_bridge_v1_lookup`
 - `assistant_change_bridge_v1_release_status`
+- `assistant_change_bridge_v1_dismiss`
 - `assistant_change_bridge_v1_clarify`
 - `assistant_change_bridge_v1_cancel`
 
@@ -79,6 +80,9 @@ includes a canonical `release_tracking` projection. The dedicated
 that commit, every recorded deployment of the change (including later manual
 deployments), and the current SHA/version on each configured environment
 target.
+For enhancement-reporting consumers, `dismiss` hides a request from the
+submitting principal's default history without deleting or cancelling the
+request, its linked Work Request, or its release evidence.
 
 Multiple change requests can be pending or running simultaneously, including
 within the same conversation. `external_conversation_id` groups those requests
@@ -94,8 +98,9 @@ versioned API when invoked; no KB body or prompt implementation is packaged.
 
 ## Safety and errors
 
-Only discovery, principal-scoped list, lookup, release status, idempotent submit, and safe cancellation receive
-bounded retries (`2` by default). Clarification is non-idempotent and is not
+Only discovery, principal-scoped list, lookup, release status, idempotent
+submit, idempotent dismissal, and safe cancellation receive bounded retries
+(`2` by default). Clarification is non-idempotent and is not
 retried; binary attachment downloads are also single-attempt. Retryable responses are limited to 408, 425, 429, and selected
 5xx statuses. Requests time out after 10 seconds by default. Error response
 fields with credential-like keys are redacted.
@@ -125,15 +130,10 @@ GET /api/assistant-change-bridge/v1/discovery
 
 ## Release identity
 
-[`RELEASE.json`](./RELEASE.json) records the exact candidate pins. Build the
-immutable tarball and checksum with:
-
-```sh
-npm run release:artifact
-```
-
-The approved Handrail release operation must verify and push that exact
-candidate before consumers use
-`github:c0x65o/handrail-mcp#v0.1.8`. npm publication is currently absent, so
-compatibility and install guidance must not claim an npm registry release.
-Never pin a moving branch.
+Internal consumers install the latest package directly from the canonical
+public Git repository. They do not wait for a Handrail-provided tag, commit, or
+archive before integrating. The consumer lockfile records the exact revision
+that npm resolved, and Owner Maintenance compares that evidence with the
+repository's current package version and Git revision to create controlled
+upgrade work. npm publication is currently absent, so compatibility and install
+guidance must not claim an npm registry release or require a vendored tarball.

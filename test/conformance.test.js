@@ -54,6 +54,14 @@ async function canonicalFixtureEndpoint() {
         },
       });
     }
+    if (req.method === "POST" && url.pathname.endsWith(`/requests/${request.id}/dismiss`)) {
+      return send(res, {
+        contract_version: API_CONTRACT_VERSION,
+        request_id: request.id,
+        dismissed_at: "2026-08-13T20:00:00.000Z",
+        underlying_request_preserved: true,
+      });
+    }
     if (req.method === "POST" && url.pathname.endsWith(`/requests/${request.id}/clarifications`)) {
       const input = await body(req);
       return send(res, {
@@ -112,6 +120,11 @@ test("one canonical v1 HTTP fixture conforms across discovery, submit, lookup, c
     assert.equal(release.auto_commit.commits[0].commit_sha, "abcdef1234567890");
     assert.equal(release.auto_commit.commits[0].version, "1.2.3");
     assert.equal(release.environments[0].deployment_state, "not_deployed");
+    const dismissed = await connected.client.callTool({
+      name: TOOL_NAMES.dismiss,
+      arguments: { request_id: "bridge-request-001" },
+    });
+    assert.equal(JSON.parse(dismissed.content[0].text).underlying_request_preserved, true);
     const clarification = await connected.client.callTool({
       name: TOOL_NAMES.clarify,
       arguments: { request_id: "bridge-request-001", response: "Keep it bounded", description: "Add the approved dashboard change" },

@@ -32,6 +32,15 @@ function fakeClient({ enabled = true } = {}) {
         release_tracking: { comparison_basis: "full_commit_sha" },
       };
     },
+    dismiss: async (args) => {
+      calls.push(["dismiss", args]);
+      return {
+        contract_version: API_CONTRACT_VERSION,
+        request_id: args.request_id,
+        dismissed_at: "2026-08-13T20:00:00.000Z",
+        underlying_request_preserved: true,
+      };
+    },
     clarify: async (args) => {
       calls.push(["clarify", args]);
       return requestRecord({ status: "accepted", terminal: true });
@@ -112,9 +121,11 @@ test("MCP tools mirror discovery, bind server identity, and report both versions
   await connected.client.callTool({ name: TOOL_NAMES.lookup, arguments: { request_id: "bridge-request-001" } });
   const releaseStatus = await connected.client.callTool({ name: TOOL_NAMES.releaseStatus, arguments: { request_id: "bridge-request-001" } });
   assert.equal(JSON.parse(releaseStatus.content[0].text).release_tracking.comparison_basis, "full_commit_sha");
+  const dismissed = await connected.client.callTool({ name: TOOL_NAMES.dismiss, arguments: { request_id: "bridge-request-001" } });
+  assert.equal(JSON.parse(dismissed.content[0].text).underlying_request_preserved, true);
   await connected.client.callTool({ name: TOOL_NAMES.clarify, arguments: { request_id: "bridge-request-001", response: "Keep the change bounded" } });
   await connected.client.callTool({ name: TOOL_NAMES.cancel, arguments: { request_id: "bridge-request-001", reason: "Withdrawn" } });
-  assert.deepEqual(client.calls.slice(0, 6).map(([name]) => name), ["submit", "list", "lookup", "releaseStatus", "clarify", "cancel"]);
+  assert.deepEqual(client.calls.slice(0, 7).map(([name]) => name), ["submit", "list", "lookup", "releaseStatus", "dismiss", "clarify", "cancel"]);
   assert.deepEqual(client.calls[0][1], submit);
   await connected.close();
 });

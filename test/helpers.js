@@ -42,7 +42,7 @@ export const discovery = Object.freeze({
     production_available: false,
     cancellation: "canonical_lifecycle",
   },
-  operations: ["discover", "submit", "list", "lookup", "releaseStatus", "clarify", "cancel"],
+  operations: ["discover", "submit", "list", "lookup", "releaseStatus", "dismiss", "clarify", "cancel"],
   resources: [{
     name: "bridge-contract",
     title: "Bridge contract",

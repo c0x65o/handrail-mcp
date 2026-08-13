@@ -120,7 +120,7 @@ export class HandrailClient {
 
   async list({ submission_kind, limit, offset } = {}) {
     if (!this.isEnabled()) return null;
-    const query = new URLSearchParams();
+    const query = new globalThis.URLSearchParams();
     if (submission_kind) query.set("submission_kind", submission_kind);
     if (limit != null) query.set("limit", String(limit));
     if (offset != null) query.set("offset", String(offset));
@@ -131,6 +131,15 @@ export class HandrailClient {
   async releaseStatus({ request_id }) {
     if (!this.isEnabled()) return null;
     return this.#request(`requests/${encodeURIComponent(request_id)}/release-status`, { method: "GET", retrySafe: true });
+  }
+
+  async dismiss({ request_id }) {
+    if (!this.isEnabled()) return null;
+    return this.#request(`requests/${encodeURIComponent(request_id)}/dismiss`, {
+      method: "POST",
+      payload: {},
+      retrySafe: true,
+    });
   }
 
   async clarify({ request_id, ...input }) {

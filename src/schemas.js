@@ -9,6 +9,7 @@ export const TOOL_NAMES = Object.freeze({
   list: "assistant_change_bridge_v1_list",
   lookup: "assistant_change_bridge_v1_lookup",
   releaseStatus: "assistant_change_bridge_v1_release_status",
+  dismiss: "assistant_change_bridge_v1_dismiss",
   clarify: "assistant_change_bridge_v1_clarify",
   cancel: "assistant_change_bridge_v1_cancel",
 });
@@ -56,6 +57,7 @@ export const TOOL_SCHEMAS = Object.freeze({
   },
   lookup: requestId,
   releaseStatus: requestId,
+  dismiss: requestId,
   clarify: {
     ...requestId,
     response: z.string().min(1).max(20_000),
@@ -103,6 +105,13 @@ export const TOOL_DEFINITIONS = Object.freeze([
     title: "Track a Handrail release",
     description: "Report the full auto-commit SHA and version, deployments of that change including later manual deployments, and the version currently deployed on every configured environment target.",
     annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    operation: "dismiss",
+    name: TOOL_NAMES.dismiss,
+    title: "Dismiss a Handrail history item",
+    description: "Hide an enhancement from this principal's default request history without deleting or cancelling the canonical request or its linked Work Request.",
+    annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     operation: "clarify",
