@@ -35,7 +35,9 @@ configuration remains a legacy compatibility path for non-Known-Users grants.
 Revocation, source-revision changes, and policy changes are enforced centrally
 on every call.
 Successful discovery explicitly reports `principal.authenticated`, the
-authentication method, and the resolved `access_level` (`default`, `user`,
+authentication method, the canonical Known User `role` (`requester`,
+`contributor`, or `maintainer`) when applicable, and the compatible resolved
+`access_level` (`default`, `user`,
 `full_access`, or `custom`) alongside the effective policy.
 
 ## CLI and transports
