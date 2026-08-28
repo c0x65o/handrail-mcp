@@ -1,5 +1,8 @@
 export { HandrailClient, createHandrailClient } from "./client.js";
 export { resolveConfig, publicConfig } from "./config.js";
+export { loadFeedbackRuntime } from "./feedback-adapters.js";
+export { resolveFeedbackConfig } from "./feedback-config.js";
+export { DEVELOPER_TOOL_NAMES, FEEDBACK_TOOL_DEFINITIONS, FEEDBACK_TOOL_NAMES } from "./feedback-schemas.js";
 export { ContractVersionError, HandrailApiError, redact } from "./errors.js";
 export { createConnectorServer } from "./server.js";
 export { TOOL_DEFINITIONS, TOOL_NAMES, TOOL_SCHEMAS } from "./schemas.js";

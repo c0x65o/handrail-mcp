@@ -4,14 +4,14 @@ const nullableString = z.string().nullable().optional();
 const requestId = { request_id: z.string().min(1).max(160) };
 
 export const TOOL_NAMES = Object.freeze({
-  discover: "assistant_change_bridge_v1_discover",
-  submit: "assistant_change_bridge_v1_submit",
-  list: "assistant_change_bridge_v1_list",
-  lookup: "assistant_change_bridge_v1_lookup",
-  releaseStatus: "assistant_change_bridge_v1_release_status",
-  dismiss: "assistant_change_bridge_v1_dismiss",
-  clarify: "assistant_change_bridge_v1_clarify",
-  cancel: "assistant_change_bridge_v1_cancel",
+  discover: "handrail_developer_change_v1_discover",
+  submit: "handrail_developer_change_v1_submit",
+  list: "handrail_developer_change_v1_list",
+  lookup: "handrail_developer_change_v1_lookup",
+  releaseStatus: "handrail_developer_change_v1_release_status",
+  dismiss: "handrail_developer_change_v1_dismiss",
+  clarify: "handrail_developer_change_v1_clarify",
+  cancel: "handrail_developer_change_v1_cancel",
 });
 
 export const TOOL_SCHEMAS = Object.freeze({
@@ -23,35 +23,14 @@ export const TOOL_SCHEMAS = Object.freeze({
     title: z.string().min(1).max(500),
     description: nullableString,
     priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
-    category: z.enum(["task", "feature", "bug"]).nullable().optional(),
+    category: z.enum(["task", "feature"]).nullable().optional(),
     run_codex: z.boolean().nullable().optional(),
     ci_cd: z.boolean().nullable().optional(),
     target_check_ids: z.array(z.string().min(1).max(160)).max(100).nullable().optional(),
     auto_commit_push: z.boolean().nullable().optional(),
     auto_deploy_env: z.enum(["staging", "production"]).nullable().optional(),
-    submission_kind: z.literal("enhancement").nullable().optional(),
-    source: z.literal("web_enhancement_reporter").nullable().optional(),
-    context: z.object({
-      route: nullableString,
-      page_title: nullableString,
-      app_version: nullableString,
-      viewport: nullableString,
-    }).nullable().optional(),
-    reporter_sdk: z.object({
-      package: nullableString,
-      version: nullableString,
-      commit: nullableString,
-      ref: nullableString,
-      runtime: nullableString,
-    }).nullable().optional(),
-    attachments: z.array(z.object({
-      filename: z.string().min(1).max(200),
-      data_url: z.string().min(1),
-      source: z.enum(["upload", "clipboard"]).optional(),
-    })).max(4).nullable().optional(),
   },
   list: {
-    submission_kind: z.literal("enhancement").nullable().optional(),
     limit: z.number().int().min(1).max(50).nullable().optional(),
     offset: z.number().int().min(0).max(10_000).nullable().optional(),
   },
@@ -81,15 +60,15 @@ export const TOOL_DEFINITIONS = Object.freeze([
   {
     operation: "submit",
     name: TOOL_NAMES.submit,
-    title: "Submit a Handrail change",
-    description: "Submit one idempotent canonical Work Request. Multiple requests may be pending or running at once: use a new idempotency_key for every distinct change intent, even in the same conversation, and reuse a key only for an exact retry. Retain every returned request.id and look up each request independently. Central policy decides whether it is held pending or starts automatically.",
+    title: "Submit a developer Work Request",
+    description: "Submit one idempotent developer-oriented canonical Work Request. This tool is not customer bug or enhancement intake. Multiple requests may be pending or running at once: use a new idempotency_key for every distinct change intent, even in the same conversation, and reuse a key only for an exact retry.",
     annotations: { readOnlyHint: false, idempotentHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     operation: "list",
     name: TOOL_NAMES.list,
     title: "List Handrail changes",
-    description: "List durable change requests owned by this bound principal, optionally filtered to customer enhancement submissions.",
+    description: "List developer-oriented durable change requests owned by this bound principal. Customer feedback uses the reporter tools.",
     annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   },
   {

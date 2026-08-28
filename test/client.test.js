@@ -183,9 +183,9 @@ test("principal history and attachment downloads stay inside the bound API", asy
     },
   }, {});
 
-  const history = await client.list({ submission_kind: "enhancement", limit: 10, offset: 5 });
+  const history = await client.list({ limit: 10, offset: 5 });
   assert.equal(history.requests[0].submission_kind, "enhancement");
-  assert.match(calls[0].url, /requests\?submission_kind=enhancement&limit=10&offset=5$/);
+  assert.match(calls[0].url, /requests\?limit=10&offset=5$/);
   const image = await client.downloadAttachment({ request_id: "request/1", attachment_id: "attachment/1" });
   assert.equal(image.filename, "screen.png");
   assert.equal(image.mime_type, "image/png");

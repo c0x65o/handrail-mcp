@@ -3,6 +3,11 @@ import * as z from "zod/v4";
 
 import { HandrailClient } from "./client.js";
 import { redact } from "./errors.js";
+import { callFeedbackAdapter, loadFeedbackRuntime } from "./feedback-adapters.js";
+import {
+  DEVELOPER_TOOL_NAMES,
+  FEEDBACK_TOOL_DEFINITIONS,
+} from "./feedback-schemas.js";
 import { TOOL_DEFINITIONS, TOOL_SCHEMAS } from "./schemas.js";
 import { API_CONTRACT_VERSION, CONNECTOR_NAME, CONNECTOR_VERSION, versionMetadata } from "./version.js";
 
@@ -99,6 +104,16 @@ export async function createConnectorServer(options = {}) {
   const client = options.client || new HandrailClient(options.config, options.env);
   const config = client.getConfig();
   const discovery = config.enabled ? (options.discovery || await client.discover()) : null;
+  const feedbackRuntime = options.feedbackRuntime || await loadFeedbackRuntime({
+    config: {
+      ...(options.feedbackConfig || {}),
+      sessionToken: options.feedbackConfig?.sessionToken
+        || options.config?.sessionToken
+        || options.config?.applicationSessionToken,
+    },
+    loadBugModule: options.loadBugReporterModule,
+    loadEnhancementModule: options.loadEnhancementReporterModule,
+  }, options.env);
   const server = new McpServer({
     name: CONNECTOR_NAME,
     version: CONNECTOR_VERSION,
@@ -112,14 +127,16 @@ export async function createConnectorServer(options = {}) {
   server.registerResource("_handrail_disabled", "handrail://disabled", {}, async () => ({ contents: [] })).disable();
   server.registerPrompt("_handrail_disabled", {}, async () => ({ messages: [] })).disable();
 
-  if (!config.enabled) return { server, client, discovery: null, config };
-
-  const operations = new Set(discovery.operations || []);
-  for (const definition of TOOL_DEFINITIONS) {
-    if (!operations.has(definition.operation)) continue;
-    server.registerTool(definition.name, {
+  if (config.enabled) {
+    const operations = new Set(discovery.operations || []);
+    for (const definition of TOOL_DEFINITIONS) {
+      if (!operations.has(definition.operation)) continue;
+      const developerName = DEVELOPER_TOOL_NAMES[definition.operation];
+      server.registerTool(developerName, {
       title: definition.title,
-      description: definition.description,
+      description: feedbackRuntime.requested
+        ? `Developer-oriented direct Work Request compatibility surface. This is not bug or enhancement intake. ${definition.description}`
+        : definition.description,
       inputSchema: TOOL_SCHEMAS[definition.operation],
       annotations: definition.annotations,
       _meta: versionMetadata(),
@@ -130,10 +147,38 @@ export async function createConnectorServer(options = {}) {
       } catch (error) {
         return toolError(error);
       }
-    });
+      });
+    }
   }
 
-  for (const descriptor of centralResources(discovery)) {
+  if (feedbackRuntime.requested) {
+    for (const definition of FEEDBACK_TOOL_DEFINITIONS) {
+      if (definition.surface !== "feedback" && !feedbackRuntime.adapters[definition.surface]) continue;
+      server.registerTool(definition.name, {
+        title: definition.title,
+        description: definition.description,
+        inputSchema: definition.schema,
+        annotations: {
+          readOnlyHint: definition.readOnly === true,
+          idempotentHint: definition.readOnly === true
+            || definition.surface === "bug" && definition.operation === "submit"
+            || definition.surface === "enhancement" && definition.operation === "submit"
+            || ["archive", "restore"].includes(definition.operation),
+          destructiveHint: definition.operation === "cancel",
+          openWorldHint: false,
+        },
+        _meta: { ...versionMetadata(), feedback_contract_version: "v2" },
+      }, async (args) => {
+        try {
+          return toolResult(definition.operation, await callFeedbackAdapter(feedbackRuntime, definition, args));
+        } catch (error) {
+          return toolError(error);
+        }
+      });
+    }
+  }
+
+  for (const descriptor of centralResources(discovery || {})) {
     server.registerResource(descriptor.name || descriptor.slug, descriptor.uri, {
       title: descriptor.title || descriptor.name || descriptor.slug,
       description: descriptor.description,
@@ -142,7 +187,7 @@ export async function createConnectorServer(options = {}) {
     }, async () => ({ contents: resourceContents(descriptor, await client.readResource(descriptor)) }));
   }
 
-  for (const descriptor of centralPrompts(discovery)) {
+  for (const descriptor of centralPrompts(discovery || {})) {
     server.registerPrompt(descriptor.name, {
       title: descriptor.title || descriptor.name,
       description: descriptor.description,
@@ -153,7 +198,7 @@ export async function createConnectorServer(options = {}) {
     });
   }
 
-  return { server, client, discovery, config };
+  return { server, client, discovery, config, feedbackRuntime };
 }
 
 export const __testing = Object.freeze({ centralResources, centralPrompts, resourceContents, promptMessages });

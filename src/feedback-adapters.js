@@ -1,0 +1,162 @@
+import { resolveFeedbackConfig } from "./feedback-config.js";
+
+const CONTRACT_VERSION = "v2";
+
+function missing(config, fields) {
+  return fields.filter((field) => !config[field]);
+}
+
+function unavailable(requested, reason, missingConfig = []) {
+  return Object.freeze({
+    requested,
+    ready: false,
+    reason,
+    missing_config: Object.freeze(missingConfig),
+  });
+}
+
+function available(discovery) {
+  return Object.freeze({ requested: true, ready: true, reason: null, missing_config: Object.freeze([]), discovery });
+}
+
+async function imported(loader) {
+  try {
+    return await loader();
+  } catch (error) {
+    if (error?.code === "ERR_MODULE_NOT_FOUND" || error?.code === "MODULE_NOT_FOUND") return null;
+    throw error;
+  }
+}
+
+function safeDiscoveryError(error) {
+  return {
+    code: "reporter_discovery_failed",
+    status: Number(error?.statusCode || error?.status) || null,
+  };
+}
+
+async function bugRuntime(config, loaders) {
+  if (!config.requested) return { readiness: unavailable(false, "not_configured"), client: null };
+  const missingConfig = missing(config, ["apiBaseUrl", "projectId", "environment", "reportToken", "serviceEnvId"]);
+  if (config.transport && config.transport !== "server") missingConfig.push("server_transport");
+  if (missingConfig.length) return { readiness: unavailable(true, "incomplete_runtime_config", missingConfig), client: null };
+  const module = await imported(loaders.bug);
+  if (!module?.createRequestScopedBugReporter) return { readiness: unavailable(true, "sdk_not_installed", ["@handrail/bug-reporter"]), client: null };
+  if (!config.sessionToken) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
+  const factory = module.createRequestScopedBugReporter({
+    apiBaseUrl: config.apiBaseUrl,
+    projectId: config.projectId,
+    environment: config.environment,
+    reportToken: config.reportToken,
+    fetch: config.fetch,
+    resolveApplicationSessionToken: (request) => request.sessionToken,
+  });
+  const client = factory.forRequest({ sessionToken: config.sessionToken });
+  try {
+    const discovery = await client.discoverPolicy();
+    if (!discovery) return { readiness: unavailable(true, "canonical_discovery_unavailable"), client: null };
+    if (
+      discovery.identityVerified !== true
+      || discovery.projectId !== config.projectId
+      || discovery.environment !== config.environment
+    ) {
+      return { readiness: unavailable(true, "canonical_discovery_mismatch"), client: null };
+    }
+    return { readiness: available(discovery), client };
+  } catch (error) {
+    return { readiness: { ...unavailable(true, "canonical_discovery_failed"), error: safeDiscoveryError(error) }, client: null };
+  }
+}
+
+async function enhancementRuntime(config, loaders) {
+  if (!config.requested) return { readiness: unavailable(false, "not_configured"), client: null };
+  const missingConfig = missing(config, ["apiUrl", "projectId", "capabilityId", "serviceEnvId", "token", "contractVersion"]);
+  if (config.contractVersion && config.contractVersion !== "v1") missingConfig.push("compatible_contract_version");
+  if (missingConfig.length) return { readiness: unavailable(true, "incomplete_runtime_config", missingConfig), client: null };
+  const module = await imported(loaders.enhancement);
+  if (!module?.createRequestScopedEnhancementReporter) return { readiness: unavailable(true, "sdk_not_installed", ["@handrail/enhancement-reporter"]), client: null };
+  if (!config.sessionToken) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
+  try {
+    const factory = module.createRequestScopedEnhancementReporter({
+      apiUrl: config.apiUrl,
+      projectId: config.projectId,
+      capabilityId: config.capabilityId,
+      token: config.token,
+      contractVersion: config.contractVersion,
+      fetch: config.fetch,
+      resolveApplicationSessionToken: (request) => request.sessionToken,
+    });
+    const client = await factory.forRequest({ sessionToken: config.sessionToken });
+    const discovery = await client.discover();
+    const capability = discovery?.capability || {};
+    if (
+      discovery?.enhancement_reporting?.enabled !== true
+      || discovery?.principal?.authenticated !== true
+      || discovery?.principal?.authentication_method !== "known_users_direct_session"
+      || capability.id !== config.capabilityId
+      || capability.project_id !== config.projectId
+      || capability.service_env_id !== config.serviceEnvId
+    ) {
+      return { readiness: unavailable(true, "canonical_discovery_mismatch"), client: null };
+    }
+    return { readiness: available(discovery), client };
+  } catch (error) {
+    return { readiness: { ...unavailable(true, "canonical_discovery_failed"), error: safeDiscoveryError(error) }, client: null };
+  }
+}
+
+export async function loadFeedbackRuntime(options = {}, env = process.env) {
+  const config = resolveFeedbackConfig(options.config || {}, env);
+  const loaders = {
+    bug: options.loadBugModule || (() => import("@handrail/bug-reporter/server")),
+    enhancement: options.loadEnhancementModule || (() => import("@handrail/enhancement-reporter/server")),
+  };
+  if (!config.requested) {
+    return Object.freeze({ requested: false, config, readiness: null, adapters: Object.freeze({}) });
+  }
+  const [bug, enhancement] = await Promise.all([
+    bugRuntime({ ...config.bug, sessionToken: config.sessionToken }, loaders),
+    enhancementRuntime({ ...config.enhancement, sessionToken: config.sessionToken }, loaders),
+  ]);
+  return Object.freeze({
+    requested: true,
+    config,
+    readiness: Object.freeze({
+      contract_version: CONTRACT_VERSION,
+      principal: bug.readiness.ready || enhancement.readiness.ready
+        ? { authenticated: true, source: "verified_known_user_discovery" }
+        : { authenticated: false, source: null, session_present: Boolean(config.sessionToken) },
+      reporters: Object.freeze({ bug: bug.readiness, enhancement: enhancement.readiness }),
+    }),
+    adapters: Object.freeze({ ...(bug.client ? { bug: bug.client } : {}), ...(enhancement.client ? { enhancement: enhancement.client } : {}) }),
+  });
+}
+
+export async function callFeedbackAdapter(runtime, definition, args) {
+  if (definition.surface === "feedback") return runtime.readiness;
+  const client = runtime.adapters[definition.surface];
+  if (!client) throw Object.assign(new Error(`${definition.surface} reporter is not ready.`), { code: `${definition.surface}_reporter_unavailable` });
+  if (definition.surface === "bug") {
+    if (definition.operation === "submit") return client.submit({
+      title: args.title,
+      description: args.description,
+      impact: args.impact || "moderate",
+      reproducer: args.reproducer,
+      route: args.route,
+      appVersion: args.app_version,
+      eventId: args.event_id,
+    });
+    if (definition.operation === "list") return client.listBugs({ limit: args.limit, cursor: args.cursor, search: args.search, statusGroup: args.status_group, sort: args.sort, visibility: args.visibility });
+    if (definition.operation === "lookup") return client.getBug(args.request_id);
+    if (definition.operation === "archive") return client.archiveBug(args.request_id);
+    if (definition.operation === "restore") return client.restoreBug(args.request_id);
+  }
+  if (definition.operation === "submit") return client.submit({ ...args, submission_kind: "enhancement", source: "web_enhancement_reporter" });
+  if (definition.operation === "list") return client.list({ limit: args.limit, offset: args.offset, search: args.search, status_group: args.status_group, sort: args.sort, visibility: args.visibility });
+  if (definition.operation === "lookup") return client.lookup({ request_id: args.request_id });
+  if (definition.operation === "releaseStatus") return client.releaseStatus({ request_id: args.request_id });
+  if (definition.operation === "archive") return client.dismiss({ request_id: args.request_id });
+  if (definition.operation === "restore") return client.restore({ request_id: args.request_id });
+  if (definition.operation === "cancel") return client.cancel({ request_id: args.request_id, reason: args.reason });
+  throw new Error("Unsupported feedback reporter operation.");
+}

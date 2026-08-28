@@ -1,7 +1,7 @@
 {
   "name": "@handrail/mcp",
-  "version": "0.1.8",
-  "description": "The sole project-side MCP connector for the versioned Handrail REST API",
+  "version": "0.2.0",
+  "description": "Handrail MCP connector with optional canonical bug and enhancement reporter adapters",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
@@ -31,6 +31,14 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
     "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "@handrail/bug-reporter": "*",
+    "@handrail/enhancement-reporter": "*"
+  },
+  "peerDependenciesMeta": {
+    "@handrail/bug-reporter": { "optional": true },
+    "@handrail/enhancement-reporter": { "optional": true }
   },
   "devDependencies": {
     "eslint": "9.32.0"

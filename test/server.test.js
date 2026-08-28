@@ -117,7 +117,7 @@ test("MCP tools mirror discovery, bind server identity, and report both versions
     title: "Add dashboard",
   };
   await connected.client.callTool({ name: TOOL_NAMES.submit, arguments: submit });
-  await connected.client.callTool({ name: TOOL_NAMES.list, arguments: { submission_kind: "enhancement" } });
+  await connected.client.callTool({ name: TOOL_NAMES.list, arguments: {} });
   await connected.client.callTool({ name: TOOL_NAMES.lookup, arguments: { request_id: "bridge-request-001" } });
   const releaseStatus = await connected.client.callTool({ name: TOOL_NAMES.releaseStatus, arguments: { request_id: "bridge-request-001" } });
   assert.equal(JSON.parse(releaseStatus.content[0].text).release_tracking.comparison_basis, "full_commit_sha");

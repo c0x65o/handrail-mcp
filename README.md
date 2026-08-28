@@ -7,13 +7,31 @@ owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.1.8`. Central API contract: `v1`.
+Current connector version: `0.2.0`. Developer Change API contract: `v1`.
+Customer feedback composition contract: `v2`.
 
 ## Runtime contract
 
-The selected server service receives these values from Handrail's
-service-bound capability injection. The connector is default-deny and exposes
-no tools unless every required value is present.
+The connector composes independently configured reporter adapters. Install
+either reporter package or both as application dependencies. Package presence
+alone is not readiness: each reporter also needs its complete server-only exact
+runtime configuration, a current verified application session, and successful
+canonical discovery.
+
+```sh
+npm install '@handrail/bug-reporter@github:c0x65o/handrail-js-bug-reporter'
+npm install '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter'
+```
+
+Bug feedback uses the service-bound `HANDRAIL_BUG_REPORT_*` variables.
+Enhancement feedback uses the independent first-class
+`HANDRAIL_ENHANCEMENT_REPORTER_*` variables. The connector dynamically imports
+the corresponding optional peer package and exposes no mutation tool when the
+package, configuration, exact binding, session, or discovery proof is absent.
+`handrail_feedback_v2_discover` reports a bounded actionable reason without
+returning credentials.
+
+The separate developer Work Request compatibility surface uses these values:
 
 ```text
 HANDRAIL_ASSISTANT_BRIDGE_ENABLED=true
@@ -54,16 +72,33 @@ The supported standard transports are stdio and stateless Streamable HTTP.
 HTTP binds to loopback by default; authentication and network exposure remain
 the host deployment's responsibility.
 
-The discovery response decides which of these canonical tools are registered:
+Reporter readiness decides which customer feedback tools are registered:
 
-- `assistant_change_bridge_v1_discover`
-- `assistant_change_bridge_v1_submit`
-- `assistant_change_bridge_v1_list`
-- `assistant_change_bridge_v1_lookup`
-- `assistant_change_bridge_v1_release_status`
-- `assistant_change_bridge_v1_dismiss`
-- `assistant_change_bridge_v1_clarify`
-- `assistant_change_bridge_v1_cancel`
+- `handrail_feedback_v2_discover`
+- `handrail_bug_reporter_v1_submit`, `list`, `lookup`, `archive`, `restore`
+- `handrail_enhancement_reporter_v1_submit`, `list`, `lookup`,
+  `release_status`, `archive`, `restore`, `cancel`
+
+Bug tools call `@handrail/bug-reporter/server`, so accepted reports create or
+deduplicate canonical `pm_bugs` and then enter existing classification,
+verification, repair, and delivery policy. Enhancement tools call
+`@handrail/enhancement-reporter/server`, so accepted requests create
+`pm_enhancements` plus `pm_enhancement_intake_submissions`, then enter the
+read-only assessment and risk-gated implementation policy. Neither path writes
+`assistant_bridge_requests`.
+Bug submit requires a stable `event_id`; enhancement submit requires a stable
+`idempotency_key`. Reuse either identity only for an exact retry.
+
+The separately named developer compatibility tools are:
+
+- `handrail_developer_change_v1_discover`
+- `handrail_developer_change_v1_submit`
+- `handrail_developer_change_v1_list`
+- `handrail_developer_change_v1_lookup`
+- `handrail_developer_change_v1_release_status`
+- `handrail_developer_change_v1_dismiss`
+- `handrail_developer_change_v1_clarify`
+- `handrail_developer_change_v1_cancel`
 
 Submission is Work Request-only. The connector does not expose feature/task
 intake or a caller-selectable mode. Central policy turns `Pending` into a
@@ -82,9 +117,9 @@ includes a canonical `release_tracking` projection. The dedicated
 that commit, every recorded deployment of the change (including later manual
 deployments), and the current SHA/version on each configured environment
 target.
-For enhancement-reporting consumers, `dismiss` hides a request from the
-submitting principal's default history without deleting or cancelling the
-request, its linked Work Request, or its release evidence.
+These tools are explicitly not customer feedback intake. Historical enhancement
+rows remain readable through legacy IDs, but new enhancements use the reporter
+tools and first-class records.
 
 Multiple change requests can be pending or running simultaneously, including
 within the same conversation. `external_conversation_id` groups those requests
