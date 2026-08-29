@@ -7,7 +7,7 @@ owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.2.0`. Developer Change API contract: `v1`.
+Current connector version: `0.2.1`. Developer Change API contract: `v1`.
 Customer feedback composition contract: `v2`.
 
 ## Runtime contract
