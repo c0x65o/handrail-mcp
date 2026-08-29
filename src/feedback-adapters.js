@@ -1,4 +1,8 @@
 import { resolveFeedbackConfig } from "./feedback-config.js";
+import {
+  createBugFeedbackClient,
+  createEnhancementFeedbackClient,
+} from "./feedback-clients.js";
 
 const CONTRACT_VERSION = "v2";
 
@@ -19,15 +23,6 @@ function available(discovery) {
   return Object.freeze({ requested: true, ready: true, reason: null, missing_config: Object.freeze([]), discovery });
 }
 
-async function imported(loader) {
-  try {
-    return await loader();
-  } catch (error) {
-    if (error?.code === "ERR_MODULE_NOT_FOUND" || error?.code === "MODULE_NOT_FOUND") return null;
-    throw error;
-  }
-}
-
 function safeDiscoveryError(error) {
   return {
     code: "reporter_discovery_failed",
@@ -35,24 +30,14 @@ function safeDiscoveryError(error) {
   };
 }
 
-async function bugRuntime(config, loaders) {
+async function bugRuntime(config) {
   if (!config.requested) return { readiness: unavailable(false, "not_configured"), client: null };
   const missingConfig = missing(config, ["apiBaseUrl", "projectId", "environment", "reportToken", "serviceEnvId"]);
   if (config.transport && config.transport !== "server") missingConfig.push("server_transport");
   if (missingConfig.length) return { readiness: unavailable(true, "incomplete_runtime_config", missingConfig), client: null };
-  const module = await imported(loaders.bug);
-  if (!module?.createRequestScopedBugReporter) return { readiness: unavailable(true, "sdk_not_installed", ["@handrail/bug-reporter"]), client: null };
   if (!config.sessionToken) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
-  const factory = module.createRequestScopedBugReporter({
-    apiBaseUrl: config.apiBaseUrl,
-    projectId: config.projectId,
-    environment: config.environment,
-    reportToken: config.reportToken,
-    fetch: config.fetch,
-    resolveApplicationSessionToken: (request) => request.sessionToken,
-  });
-  const client = factory.forRequest({ sessionToken: config.sessionToken });
   try {
+    const client = createBugFeedbackClient(config);
     const discovery = await client.discoverPolicy();
     if (!discovery) return { readiness: unavailable(true, "canonical_discovery_unavailable"), client: null };
     if (
@@ -68,25 +53,14 @@ async function bugRuntime(config, loaders) {
   }
 }
 
-async function enhancementRuntime(config, loaders) {
+async function enhancementRuntime(config) {
   if (!config.requested) return { readiness: unavailable(false, "not_configured"), client: null };
   const missingConfig = missing(config, ["apiUrl", "projectId", "capabilityId", "serviceEnvId", "token", "contractVersion"]);
   if (config.contractVersion && config.contractVersion !== "v1") missingConfig.push("compatible_contract_version");
   if (missingConfig.length) return { readiness: unavailable(true, "incomplete_runtime_config", missingConfig), client: null };
-  const module = await imported(loaders.enhancement);
-  if (!module?.createRequestScopedEnhancementReporter) return { readiness: unavailable(true, "sdk_not_installed", ["@handrail/enhancement-reporter"]), client: null };
   if (!config.sessionToken) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
   try {
-    const factory = module.createRequestScopedEnhancementReporter({
-      apiUrl: config.apiUrl,
-      projectId: config.projectId,
-      capabilityId: config.capabilityId,
-      token: config.token,
-      contractVersion: config.contractVersion,
-      fetch: config.fetch,
-      resolveApplicationSessionToken: (request) => request.sessionToken,
-    });
-    const client = await factory.forRequest({ sessionToken: config.sessionToken });
+    const client = createEnhancementFeedbackClient(config);
     const discovery = await client.discover();
     const capability = discovery?.capability || {};
     if (
@@ -107,16 +81,12 @@ async function enhancementRuntime(config, loaders) {
 
 export async function loadFeedbackRuntime(options = {}, env = process.env) {
   const config = resolveFeedbackConfig(options.config || {}, env);
-  const loaders = {
-    bug: options.loadBugModule || (() => import("@handrail/bug-reporter/server")),
-    enhancement: options.loadEnhancementModule || (() => import("@handrail/enhancement-reporter/server")),
-  };
   if (!config.requested) {
     return Object.freeze({ requested: false, config, readiness: null, adapters: Object.freeze({}) });
   }
   const [bug, enhancement] = await Promise.all([
-    bugRuntime({ ...config.bug, sessionToken: config.sessionToken }, loaders),
-    enhancementRuntime({ ...config.enhancement, sessionToken: config.sessionToken }, loaders),
+    bugRuntime({ ...config.bug, sessionToken: config.sessionToken }),
+    enhancementRuntime({ ...config.enhancement, sessionToken: config.sessionToken }),
   ]);
   return Object.freeze({
     requested: true,
@@ -151,7 +121,7 @@ export async function callFeedbackAdapter(runtime, definition, args) {
     if (definition.operation === "archive") return client.archiveBug(args.request_id);
     if (definition.operation === "restore") return client.restoreBug(args.request_id);
   }
-  if (definition.operation === "submit") return client.submit({ ...args, submission_kind: "enhancement", source: "web_enhancement_reporter" });
+  if (definition.operation === "submit") return client.submit({ ...args, submission_kind: "enhancement" });
   if (definition.operation === "list") return client.list({ limit: args.limit, offset: args.offset, search: args.search, status_group: args.status_group, sort: args.sort, visibility: args.visibility });
   if (definition.operation === "lookup") return client.lookup({ request_id: args.request_id });
   if (definition.operation === "releaseStatus") return client.releaseStatus({ request_id: args.request_id });

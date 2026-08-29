@@ -12,22 +12,16 @@ Customer feedback composition contract: `v2`.
 
 ## Runtime contract
 
-The connector composes independently configured reporter adapters. Install
-either reporter package or both as application dependencies. Package presence
-alone is not readiness: each reporter also needs its complete server-only exact
-runtime configuration, a current verified application session, and successful
-canonical discovery.
-
-```sh
-npm install '@handrail/bug-reporter@github:c0x65o/handrail-js-bug-reporter'
-npm install '@handrail/enhancement-reporter@github:c0x65o/handrail-js-enhancement-reporter'
-```
+The connector has independent, server-only feedback transports. It shares the
+canonical Handrail feedback APIs and backend policy with the browser reporter
+SDKs, but does not install or import either reporter package. Applications can
+install MCP, either reporter SDK, or both without creating package coupling.
 
 Bug feedback uses the service-bound `HANDRAIL_BUG_REPORT_*` variables.
 Enhancement feedback uses the independent first-class
-`HANDRAIL_ENHANCEMENT_REPORTER_*` variables. The connector dynamically imports
-the corresponding optional peer package and exposes no mutation tool when the
-package, configuration, exact binding, session, or discovery proof is absent.
+`HANDRAIL_ENHANCEMENT_REPORTER_*` variables. The connector exposes no mutation
+tool when the corresponding configuration, exact binding, session, or
+discovery proof is absent.
 `handrail_feedback_v2_discover` reports a bounded actionable reason without
 returning credentials.
 
@@ -79,10 +73,10 @@ Reporter readiness decides which customer feedback tools are registered:
 - `handrail_enhancement_reporter_v1_submit`, `list`, `lookup`,
   `release_status`, `archive`, `restore`, `cancel`
 
-Bug tools call `@handrail/bug-reporter/server`, so accepted reports create or
+Bug tools call the canonical Bug Reporting API, so accepted reports create or
 deduplicate canonical `pm_bugs` and then enter existing classification,
-verification, repair, and delivery policy. Enhancement tools call
-`@handrail/enhancement-reporter/server`, so accepted requests create
+verification, repair, and delivery policy. Enhancement tools call the
+canonical Enhancement Reporting API, so accepted requests create
 `pm_enhancements` plus `pm_enhancement_intake_submissions`, then enter the
 read-only assessment and risk-gated implementation policy. Neither path writes
 `assistant_bridge_requests`.

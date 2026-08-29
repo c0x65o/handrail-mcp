@@ -35,7 +35,7 @@ export const DEVELOPER_TOOL_NAMES = Object.freeze({
 });
 
 export const FEEDBACK_TOOL_DEFINITIONS = Object.freeze([
-  { surface: "feedback", operation: "discover", name: FEEDBACK_TOOL_NAMES.discover, title: "Discover Handrail feedback reporters", description: "Report whether the bug and enhancement reporter adapters are installed, exactly configured, session-authenticated, and accepted by their canonical Handrail discovery endpoints.", schema: {}, readOnly: true },
+  { surface: "feedback", operation: "discover", name: FEEDBACK_TOOL_NAMES.discover, title: "Discover Handrail feedback transports", description: "Report whether the independent bug and enhancement transports are exactly configured, session-authenticated, and accepted by their canonical Handrail discovery endpoints.", schema: {}, readOnly: true },
   { surface: "bug", operation: "submit", name: FEEDBACK_TOOL_NAMES.bugSubmit, title: "Report a Handrail bug", description: "Create or deduplicate a canonical Handrail PM bug through the configured bug reporter. This never creates an Assistant Bridge request or directly grants implementation or deployment authority.", schema: {
     title: z.string().min(1).max(240),
     description: z.string().min(1).max(8_000),

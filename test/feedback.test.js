@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { createConnectorServer } from "../src/server.js";
@@ -28,53 +29,52 @@ function enabledBridge() {
   };
 }
 
-function bugModule(calls = [], policy = null) {
-  const client = {
-    discoverPolicy: async () => policy || ({
-      schemaVersion: 1,
-      projectId: "project-1",
-      environment: "staging",
-      identityVerified: true,
-    }),
-    submit: async (input) => { calls.push(["bug.submit", input]); return { status: "submitted", bugId: "bug-1" }; },
-    listBugs: async (input) => { calls.push(["bug.list", input]); return { bugs: [] }; },
-    getBug: async (id) => ({ id }),
-    archiveBug: async (id) => ({ bug_id: id, archived: true }),
-    restoreBug: async (id) => ({ bug_id: id, archived: false }),
-  };
+function json(body, status = 200) {
+  return new globalThis.Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function bugPolicy(overrides = {}) {
   return {
-    createRequestScopedBugReporter: (config) => ({
-      forRequest(request) {
-        assert.equal(config.resolveApplicationSessionToken(request), "session-1");
-        return client;
-      },
-    }),
+    schema_version: 1,
+    project_id: "project-1",
+    environment: "staging",
+    reporter: { identity_verified: true, access_level: "default", role: "requester" },
+    ask_options: [],
+    ...overrides,
   };
 }
 
-function enhancementModule(calls = [], discovered = null) {
-  const client = {
-    discover: async () => discovered || ({
-      contract_version: "v1",
-      capability: { id: "enhancement-1", project_id: "project-1", service_env_id: "service-env-1" },
-      principal: { authenticated: true, authentication_method: "known_users_direct_session" },
-      enhancement_reporting: { enabled: true },
-    }),
-    submit: async (input) => { calls.push(["enhancement.submit", input]); return { contract_version: "v1", request: { id: "request-1" } }; },
-    list: async (input) => { calls.push(["enhancement.list", input]); return { contract_version: "v1", requests: [] }; },
-    lookup: async ({ request_id }) => ({ contract_version: "v1", id: request_id }),
-    releaseStatus: async ({ request_id }) => ({ contract_version: "v1", request_id }),
-    dismiss: async ({ request_id }) => ({ contract_version: "v1", request_id, dismissed: true }),
-    restore: async ({ request_id }) => ({ contract_version: "v1", request_id, dismissed: false }),
-    cancel: async ({ request_id }) => ({ contract_version: "v1", id: request_id, status: "cancelled" }),
-  };
+function enhancementDiscovery(overrides = {}) {
   return {
-    createRequestScopedEnhancementReporter: (config) => ({
-      async forRequest(request) {
-        assert.equal(config.resolveApplicationSessionToken(request), "session-1");
-        return client;
-      },
-    }),
+    contract_version: "v1",
+    capability: { id: "enhancement-1", project_id: "project-1", service_env_id: "service-env-1" },
+    principal: { authenticated: true, authentication_method: "known_users_direct_session" },
+    enhancement_reporting: { enabled: true },
+    ...overrides,
+  };
+}
+
+function feedbackFetch(calls = [], options = {}) {
+  return async (url, init = {}) => {
+    const parsed = new URL(url);
+    const body = init.body ? JSON.parse(init.body) : null;
+    calls.push({ url: parsed, init, body });
+    if (parsed.pathname.endsWith("/api/mobile-bug-reports/policy")) {
+      return json(options.bugPolicy || bugPolicy());
+    }
+    if (parsed.pathname.endsWith("/api/enhancement-reporting/v1/discovery")) {
+      return json(options.enhancementDiscovery || enhancementDiscovery());
+    }
+    if (parsed.pathname.endsWith("/api/mobile-bug-reports") && init.method === "POST") {
+      return json({ bug_id: "bug-1" }, 201);
+    }
+    if (parsed.pathname.endsWith("/api/enhancement-reporting/v1/requests") && init.method === "POST") {
+      return json({ contract_version: "v1", request: { id: "request-1", contract_version: "v1" } }, 201);
+    }
+    throw new Error(`Unexpected feedback request: ${init.method || "GET"} ${parsed.pathname}`);
   };
 }
 
@@ -107,6 +107,18 @@ async function listed(options) {
   return { connector, connected, tools: (await connected.client.listTools()).tools };
 }
 
+test("package and runtime source have no reporter SDK dependency", async () => {
+  const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const adapters = await readFile(new URL("../src/feedback-adapters.js", import.meta.url), "utf8");
+  const clients = await readFile(new URL("../src/feedback-clients.js", import.meta.url), "utf8");
+  for (const packageName of ["@handrail/bug-reporter", "@handrail/enhancement-reporter"]) {
+    assert.equal(manifest.dependencies?.[packageName], undefined);
+    assert.equal(manifest.peerDependencies?.[packageName], undefined);
+    assert.equal(manifest.optionalDependencies?.[packageName], undefined);
+    assert.doesNotMatch(`${adapters}\n${clients}`, new RegExp(`${packageName.replace("/", "\\/")}/server`, "u"));
+  }
+});
+
 test("feedback discovery explains why neither reporter is available", async () => {
   const { connected, tools } = await listed({
     client: disabledBridge(),
@@ -124,14 +136,13 @@ for (const scenario of ["bug", "enhancement", "both"]) {
   test(`${scenario}-only reporter readiness exposes exactly its canonical tools`, async () => {
     const feedbackConfig = {
       ...base,
+      fetch: feedbackFetch(),
       bug: { ...base.bug, enabled: scenario !== "enhancement" },
       enhancement: { ...base.enhancement, enabled: scenario !== "bug" },
     };
     const { connected, tools } = await listed({
       client: disabledBridge(),
       feedbackConfig,
-      loadBugReporterModule: async () => bugModule(),
-      loadEnhancementReporterModule: async () => enhancementModule(),
     });
     const names = tools.map(({ name }) => name);
     assert.equal(names.includes(FEEDBACK_TOOL_NAMES.bugSubmit), scenario !== "enhancement");
@@ -141,37 +152,33 @@ for (const scenario of ["bug", "enhancement", "both"]) {
   });
 }
 
-test("missing verified session and missing SDK are actionable and expose no reporter mutations", async () => {
+test("missing verified session is actionable and exposes no reporter mutations", async () => {
+  const calls = [];
   const { connected, tools } = await listed({
     client: disabledBridge(),
-    feedbackConfig: { ...base, sessionToken: undefined },
-    loadBugReporterModule: async () => bugModule(),
-    loadEnhancementReporterModule: async () => { throw Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" }); },
+    feedbackConfig: { ...base, sessionToken: undefined, fetch: feedbackFetch(calls) },
   });
   assert.deepEqual(tools.map(({ name }) => name), [FEEDBACK_TOOL_NAMES.discover]);
   const result = JSON.parse((await connected.client.callTool({ name: FEEDBACK_TOOL_NAMES.discover, arguments: {} })).content[0].text);
   assert.equal(result.reporters.bug.reason, "verified_session_required");
-  assert.equal(result.reporters.enhancement.reason, "sdk_not_installed");
+  assert.equal(result.reporters.enhancement.reason, "verified_session_required");
+  assert.equal(calls.length, 0);
   assert.doesNotMatch(JSON.stringify(result), /bug-secret|enhancement-secret/u);
   await connected.close();
 });
 
 test("discovery rejects unverified bug identity and an inexact enhancement service binding", async () => {
+  const fetch = feedbackFetch([], {
+    bugPolicy: bugPolicy({
+      reporter: { identity_verified: false, access_level: "default", role: "requester" },
+    }),
+    enhancementDiscovery: enhancementDiscovery({
+      capability: { id: "enhancement-1", project_id: "project-1", service_env_id: "different-service-env" },
+    }),
+  });
   const { connected, tools } = await listed({
     client: disabledBridge(),
-    feedbackConfig: base,
-    loadBugReporterModule: async () => bugModule([], {
-      schemaVersion: 1,
-      projectId: "project-1",
-      environment: "staging",
-      identityVerified: false,
-    }),
-    loadEnhancementReporterModule: async () => enhancementModule([], {
-      contract_version: "v1",
-      capability: { id: "enhancement-1", project_id: "project-1", service_env_id: "different-service-env" },
-      principal: { authenticated: true, authentication_method: "known_users_direct_session" },
-      enhancement_reporting: { enabled: true },
-    }),
+    feedbackConfig: { ...base, fetch },
   });
   assert.deepEqual(tools.map(({ name }) => name), [FEEDBACK_TOOL_NAMES.discover]);
   const readiness = JSON.parse((await connected.client.callTool({ name: FEEDBACK_TOOL_NAMES.discover, arguments: {} })).content[0].text);
@@ -184,9 +191,7 @@ test("reporter submits use canonical adapters and cannot carry execution authori
   const calls = [];
   const { connected, tools } = await listed({
     client: disabledBridge(),
-    feedbackConfig: base,
-    loadBugReporterModule: async () => bugModule(calls),
-    loadEnhancementReporterModule: async () => enhancementModule(calls),
+    feedbackConfig: { ...base, fetch: feedbackFetch(calls) },
   });
   const enhancementTool = tools.find(({ name }) => name === FEEDBACK_TOOL_NAMES.enhancementSubmit);
   const bugTool = tools.find(({ name }) => name === FEEDBACK_TOOL_NAMES.bugSubmit);
@@ -196,13 +201,18 @@ test("reporter submits use canonical adapters and cannot carry execution authori
   }
   await connected.client.callTool({ name: FEEDBACK_TOOL_NAMES.bugSubmit, arguments: { event_id: "conversation:bug:1", title: "Broken", description: "It failed", impact: "high" } });
   await connected.client.callTool({ name: FEEDBACK_TOOL_NAMES.enhancementSubmit, arguments: { idempotency_key: "conversation:1", external_conversation_id: "conversation", title: "Improve it", description: "Add a saved view" } });
-  assert.deepEqual(calls.map(([name]) => name), ["bug.submit", "enhancement.submit"]);
-  assert.equal(calls[0][1].impact, "high");
-  assert.equal(calls[0][1].eventId, "conversation:bug:1");
-  assert.equal(calls[1][1].submission_kind, "enhancement");
-  assert.equal(calls[1][1].source, "web_enhancement_reporter");
+  const bugCall = calls.find(({ url, init }) => url.pathname.endsWith("/api/mobile-bug-reports") && init.method === "POST");
+  const enhancementCall = calls.find(({ url, init }) => url.pathname.endsWith("/api/enhancement-reporting/v1/requests") && init.method === "POST");
+  assert.equal(bugCall.body.severity, "high");
+  assert.equal(bugCall.body.event_id, "conversation:bug:1");
+  assert.equal(bugCall.body.reporter_sdk_package, "@handrail/mcp");
+  assert.equal(bugCall.init.headers["x-handrail-application-session-token"], "session-1");
+  assert.equal(enhancementCall.body.submission_kind, "enhancement");
+  assert.equal(enhancementCall.body.reporter_sdk.package, "@handrail/mcp");
+  assert.equal(enhancementCall.init.headers["x-handrail-application-session"], "session-1");
+  assert.equal(enhancementCall.init.headers["idempotency-key"], "conversation:1");
   for (const forbidden of ["run_codex", "ci_cd", "auto_commit_push", "auto_deploy_env", "requested_delivery_ceiling"]) {
-    assert.equal(Object.hasOwn(calls[1][1], forbidden), false);
+    assert.equal(Object.hasOwn(enhancementCall.body, forbidden), false);
   }
   await connected.close();
 });

@@ -111,8 +111,6 @@ export async function createConnectorServer(options = {}) {
         || options.config?.sessionToken
         || options.config?.applicationSessionToken,
     },
-    loadBugModule: options.loadBugReporterModule,
-    loadEnhancementModule: options.loadEnhancementReporterModule,
   }, options.env);
   const server = new McpServer({
     name: CONNECTOR_NAME,

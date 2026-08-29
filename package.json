@@ -1,7 +1,7 @@
 {
   "name": "@handrail/mcp",
   "version": "0.2.0",
-  "description": "Handrail MCP connector with optional canonical bug and enhancement reporter adapters",
+  "description": "Handrail MCP connector with independent canonical bug and enhancement feedback transports",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
@@ -31,14 +31,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
     "zod": "4.4.3"
-  },
-  "peerDependencies": {
-    "@handrail/bug-reporter": "*",
-    "@handrail/enhancement-reporter": "git+https://github.com/c0x65o/handrail-js-enhancement-reporter.git#c55ccc54e7ed9a5b2496912a136c80524069c30c"
-  },
-  "peerDependenciesMeta": {
-    "@handrail/bug-reporter": { "optional": true },
-    "@handrail/enhancement-reporter": { "optional": true }
   },
   "devDependencies": {
     "eslint": "9.32.0"
