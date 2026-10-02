@@ -1,0 +1,446 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-10-02T13:35:34.191Z",
+  "work_request_id": "d4a31348-9834-5a2b-956f-5af7bc4ee91a",
+  "source_request_id": "412cfd3d-6e28-40b3-a2bb-dadd9ba32c05",
+  "underlying_request_id": "9fd48d7e-2e9d-49e7-976d-b852efe42b72",
+  "intended_outcome": "Shared MCP connector prerequisite for Mills bug/enhancement follow-through. Avery owns subsequent Mills production/mobile adoption and independent QA; this milestone is not Mills readiness.",
+  "delivery": {
+    "ci_cd": false,
+    "auto_commit_push": true,
+    "deploy_env": null,
+    "source_changes": "uncommitted for whole-checkout post-agent pipeline",
+    "published_candidate_sha": null,
+    "published_candidate_version": null,
+    "public_repository": "https://github.com/c0x65o/handrail-mcp.git",
+    "inspected_base_sha": "eb879d767d05c7c2e15748f6fe7838294b980d82",
+    "inspected_base_version": "0.2.1",
+    "remaining": "Pipeline must bump version, commit, push and return the full HTTPS SHA/version; then rerun normal immutable candidate consumer installation. Worker did not commit, push, deploy or change pins."
+  },
+  "catalog": {
+    "discover": "handrail_feedback_v2_discover",
+    "bugSubmit": "handrail_bug_reporter_v1_submit",
+    "bugList": "handrail_bug_reporter_v1_list",
+    "bugLookup": "handrail_bug_reporter_v1_lookup",
+    "bugArchive": "handrail_bug_reporter_v1_archive",
+    "bugRestore": "handrail_bug_reporter_v1_restore",
+    "bugSubscribe": "handrail_bug_reporter_v1_subscribe",
+    "enhancementSubmit": "handrail_enhancement_reporter_v1_submit",
+    "enhancementList": "handrail_enhancement_reporter_v1_list",
+    "enhancementLookup": "handrail_enhancement_reporter_v1_lookup",
+    "enhancementReleaseStatus": "handrail_enhancement_reporter_v1_release_status",
+    "enhancementArchive": "handrail_enhancement_reporter_v1_archive",
+    "enhancementRestore": "handrail_enhancement_reporter_v1_restore",
+    "enhancementCancel": "handrail_enhancement_reporter_v1_cancel",
+    "enhancementClarify": "handrail_enhancement_reporter_v1_clarify",
+    "enhancementSubscribe": "handrail_enhancement_reporter_v1_subscribe"
+  },
+  "new_tools": [
+    {
+      "name": "handrail_bug_reporter_v1_subscribe",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "reporter_notification": {
+            "type": "object",
+            "properties": {
+              "notify_on_resolution": {
+                "type": "boolean",
+                "const": true,
+                "description": "Explicit user consent to email when this report is fixed. Never infer consent."
+              },
+              "consent_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              }
+            },
+            "required": [
+              "notify_on_resolution"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "request_id",
+          "reporter_notification"
+        ],
+        "additionalProperties": false
+      },
+      "additional_runtime_constraints": [
+        "explicit user consent; no inferred opt-in"
+      ],
+      "upstream": {
+        "method": "POST",
+        "path": "/api/mobile-bug-reports/bugs/:request_id/subscription",
+        "body": {
+          "project_id": "runtime config.projectId",
+          "environment": "runtime config.environment",
+          "reporter_notification": "input.reporter_notification"
+        },
+        "session_header": "x-handrail-application-session-token",
+        "response": {
+          "notification_subscription": {
+            "active": true,
+            "created": "boolean",
+            "recipient_hint": "masked string",
+            "subscribed_at": "ISO timestamp"
+          }
+        },
+        "http_status": 201
+      }
+    },
+    {
+      "name": "handrail_enhancement_reporter_v1_subscribe",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "reporter_notification": {
+            "type": "object",
+            "properties": {
+              "notify_on_resolution": {
+                "type": "boolean",
+                "const": true,
+                "description": "Explicit user consent to email when this report is fixed. Never infer consent."
+              },
+              "consent_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              }
+            },
+            "required": [
+              "notify_on_resolution"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "request_id",
+          "reporter_notification"
+        ],
+        "additionalProperties": false
+      },
+      "additional_runtime_constraints": [
+        "explicit user consent; no inferred opt-in"
+      ],
+      "upstream": {
+        "method": "POST",
+        "path": "/api/enhancement-reporting/v1/requests/:request_id/subscription",
+        "body": {
+          "reporter_notification": "input.reporter_notification"
+        },
+        "session_header": "x-handrail-application-session",
+        "response": {
+          "contract_version": "v1",
+          "notification_subscription": {
+            "active": true,
+            "created": "boolean",
+            "recipient_hint": "masked string",
+            "subscribed_at": "ISO timestamp"
+          }
+        },
+        "http_status": 201
+      }
+    },
+    {
+      "name": "handrail_enhancement_reporter_v1_clarify",
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "assessment_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assessment_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "request_id",
+          "assessment_id",
+          "assessment_version",
+          "answer"
+        ],
+        "additionalProperties": false
+      },
+      "additional_runtime_constraints": [
+        "assessment_id and answer must not be whitespace-only",
+        "lookup.clarification.response_allowed must be true before answering",
+        "exact original tuple/answer on replay"
+      ],
+      "upstream": {
+        "method": "POST",
+        "path": "/api/enhancement-reporting/v1/requests/:request_id/clarifications",
+        "body": {
+          "assessment_id": "input.assessment_id",
+          "assessment_version": "input.assessment_version",
+          "answer": "input.answer"
+        },
+        "session_header": "x-handrail-application-session",
+        "response": {
+          "contract_version": "v1",
+          "answered": true,
+          "replayed": "boolean",
+          "assessment_id": "continuation assessment ID",
+          "assessment_status": "string or null",
+          "warning": "null or {code,message}",
+          "implementation_authority": false,
+          "deployment_authority": false
+        },
+        "http_status": 200
+      }
+    }
+  ],
+  "discovery": {
+    "session": "Current directly verified Known User session; no caller-selected issuer, subject, email, project or environment in new tool arguments. Fresh canonical discovery before every feedback call; current HTTP session overrides startup session; missing HTTP session exposes no reporter mutations.",
+    "bug": {
+      "config": [
+        "apiBaseUrl",
+        "projectId",
+        "environment",
+        "serviceEnvId",
+        "reportToken",
+        "server transport"
+      ],
+      "canonical": "GET /api/mobile-bug-reports/policy?project_id=...&environment=...",
+      "checks": [
+        "schema_version=1",
+        "reporter.identity_verified=true",
+        "project_id exact match",
+        "environment exact match"
+      ],
+      "subscription_gate": "reporter_notifications.available=true (mapped to discovery.reporterNotifications in MCP bug readiness)",
+      "limit": "Policy response does not echo service_env_id or historical source_revision. MCP requires local serviceEnvId config; central report token/session verifier owns the binding. No invented client-side proof."
+    },
+    "enhancement": {
+      "config": [
+        "apiUrl",
+        "projectId",
+        "capabilityId",
+        "serviceEnvId",
+        "token",
+        "contractVersion=v1"
+      ],
+      "canonical": "GET /api/enhancement-reporting/v1/discovery",
+      "checks": [
+        "enhancement_reporting.enabled=true",
+        "principal.authenticated=true",
+        "principal.authentication_method=known_users_direct_session",
+        "capability.id/project_id/service_env_id exact match"
+      ],
+      "clarification_gate": "enhancement_reporting.workflow.clarification_response=true",
+      "subscription_gate": "reporter_notifications.available=true",
+      "compatibility": "Upstream operations array does not enumerate these routes; the explicit workflow/notification metadata gates them. Old credential allowlists may require native credential refresh; connector never expands them."
+    }
+  },
+  "canonical_semantics": {
+    "clarification": "Read current lookup.clarification {assessment_id,assessment_version,question,response_allowed,grants_implementation_authority:false}. Upstream validates current verified source/environment, credential allowlist, automatic assessment, issuer/subject/project/environment ownership, source_revision, current immutable assessment, no started implementation, and no native archive. First answer durably records input and prepares a read-only continuation. Exact trimmed answer/assessment/version/principal replay returns the saved continuation without enqueueing again; prior replay can succeed even after cancellation/archive. Different answer is 409 conflict; outdated/new answers after cancellation or native archive are 409 stale. Source revision change is 409. Reporter dismiss changes history visibility only. Saved answer with blocked assessment remains answered with a native recovery warning; never create replacement work.",
+    "subscription": "Explicit notify_on_resolution=true; consent_version defaults upstream to v1. Both routes verify ownership and derive email from the current Known User proof; missing configured email is 403 feedback_notification_identity_email_required. They return HTTP 201 even for an existing active subscription (created=false). Dedup key is project/report_kind/report_id/normalized verified email. No subscription ID, reusable credential, callback URL, background authorization, readiness or notification delivery receipt is returned. Cancellation/archive do not revoke existing consent or necessarily block subscribing; this must not be interpreted as ready.",
+    "custody": "Handrail feedback-reporter-notifications owns fixed-lifecycle email selection, release-evidence evaluation, delivery claiming/deduplication and sending. MCP only transports consent. Email readiness and the Agent SDK canonicalFeedbackReady predicate are distinct; preserve the existing SDK predicate for conversation readiness.",
+    "uncertainty": "All feedback HTTP calls are single-attempt. Timeout/network failure/unreadable success does not prove non-application. Keep original principal/runtime, canonical report ID, submission event_id/idempotency_key, and clarification assessment tuple/answer. Reconcile with the existing SDK effect/receipt mechanism; no automatic replacement or new identity. New distinct scope is a new authorized intent, not an exact retry."
+  },
+  "background_authorization_gap": {
+    "class": "missing capability",
+    "evidence": "The canonical subscription routes return only email consent status and require a currently verified application session on each call. They provide no token exchange, durable observation grant, refresh token or conversation callback.",
+    "next_step": "Avery must bind the existing SDK withClient to an already authorized fresh Known User session path for each observation; if Mills has no such background path, keep unattended conversation observation as an explicit upstream dependency. Do not retain raw sessions/cookies or treat email subscription as that grant.",
+    "owner": "Avery / existing Mills adoption workflow"
+  },
+  "mills_binding": {
+    "inspected_path": "src/server/assistant/assistance-store.ts",
+    "current": "createAssistance currently supplies adapters: {} and retains PostgreSQL host authority / reminder notification projections.",
+    "steps": [
+      "Adopt the pipeline-published MCP SHA via public HTTPS full-SHA dependency and matching lock; no pins changed by this assignment.",
+      "Bind createHandrailFeedbackEffectAdapter to existing effect inputs, receipts and notApplied fence. Preserve submission identity and canonical kind/id; unknown dispatch remains unknown.",
+      "Implement HandrailFeedbackSession.withClient with fresh exact-runtime config and current verified Known User authorization. Parse structuredContent and throw on isError; never persist raw sessions.",
+      "Bind createHandrailFeedbackObserver into the existing createAssistance adapters; persist feedbackSubject(kind,id), exact environment and original conversation return in existing host storage. Retain legacy reminder/notification behavior.",
+      "Use the new discovered MCP catalog directly for current clarification answers and explicit subscription consent. Existing SDK submission effect adapter does not dispatch these new operations and has no approval-response API; do not map to developer.clarify.",
+      "Use the SDK watch/authority/revision/notification dedup path and canonicalFeedbackReady for one durable original-conversation ready return, not a second polling loop or ledger. Clarification questions return to the requesting conversation and wait for real user input. Staff implementation approval stays in Handrail.",
+      "Verify concurrent intents, source/environment/tenant changes, cancellation and uncertain delivery in existing independent staging QA before claiming Mills readiness."
+    ]
+  },
+  "verification": {
+    "suite": {
+      "command": "npm test",
+      "passed": 48,
+      "failed": 0
+    },
+    "lint": {
+      "command": "npm run lint",
+      "passed": true
+    },
+    "smoke": {
+      "command": "npm run smoke",
+      "passed": true,
+      "notes": "CLI + npm pack --dry-run only; no archive installation or publication"
+    },
+    "types": {
+      "compiler": "TypeScript 5.9.3 from existing read-only Agent SDK node_modules",
+      "command": "node <existing-typescript>/lib/tsc.js --noEmit --strict --module NodeNext --moduleResolution NodeNext --target ES2022 test/types/feedback.ts",
+      "passed": true,
+      "installed_candidate_overlay_types_passed": true
+    },
+    "regression_file": "test/feedback-follow-through.test.js",
+    "boundaries": {
+      "real": [
+        "MCP Client/Server admission and catalog",
+        "Zod validation",
+        "scoped feedback adapters and clients",
+        "fetch to loopback HTTP",
+        "MCP response/error handling",
+        "Streamable HTTP current-session binding"
+      ],
+      "simulated": [
+        "canonical Known User auth and source/tenant denials",
+        "canonical database ownership and transactional idempotency",
+        "assessment scheduling and native recovery warning",
+        "notification subscription persistence"
+      ],
+      "not_exercised": [
+        "live canonical database",
+        "real reporter submission",
+        "real provider notification delivery",
+        "Mills staging/production/mobile behavior",
+        "final pipeline-published candidate installation"
+      ]
+    },
+    "regressions": [
+      "current lookup assessment answer",
+      "exact duplicate answer and conflict",
+      "stale ID/version",
+      "cancelled/native archived new answer",
+      "exact replay after cancellation/archive",
+      "reporter history dismissal distinct from native archive",
+      "bug/enhancement subscription with active dedup",
+      "session/capability revocation before and after discovery",
+      "Known User identity/project/environment mismatch",
+      "source-revision canonical error forwarding",
+      "uncertain applied write and exact retry",
+      "invalid response",
+      "strict consent and no email/authority injection",
+      "existing bug archive/restore"
+    ],
+    "prior_failure": "Initial full suite: 29 passed, 1 pre-existing failure in package.test.js expecting a tag pin although RELEASE.json approved_git_pin was null. Replaced tag expectations with public HTTPS Git policy checks; final suite passed."
+  },
+  "installed_consumer": {
+    "public_base": {
+      "install": "npm install then npm ci with public full-SHA Git dependency; normal package import passed",
+      "package": {
+        "name": "mcp-feedback-consumer-check",
+        "dependencies": {
+          "@handrail/mcp": "git+https://github.com/c0x65o/handrail-mcp.git#eb879d767d05c7c2e15748f6fe7838294b980d82"
+        }
+      },
+      "resolved_package": {
+        "version": "0.2.1",
+        "resolved": "git+https://github.com/c0x65o/handrail-mcp.git#eb879d767d05c7c2e15748f6fe7838294b980d82",
+        "integrity": "sha512-RX2bAFar+SGPuBfWDht7fOtNa3bsrGn/x5a29bDMv1gY8/TPUZhDs8XgjhBeDlE2XRYr3uMZzRzt56vPyb00WQ==",
+        "license": "UNLICENSED",
+        "dependencies": {
+          "@modelcontextprotocol/sdk": "1.30.0",
+          "zod": "4.4.3"
+        },
+        "bin": {
+          "handrail-mcp": "src/cli.js"
+        },
+        "engines": {
+          "node": ">=20"
+        }
+      },
+      "lockfile_sha256": "37ca4ddd78427b28dc2a8dc461892c86a3b78df051997a6110a19b6e3f7b8873",
+      "catalog_size": 13,
+      "lock_note": "npm initially normalized GitHub resolved URL to git+ssh. Task-local lock resolved URL was normalized to identical full-SHA public git+https; npm ci passed and retained it. No application/SDK lockfile changed."
+    },
+    "candidate": {
+      "method": "After the normal base install, copied uncommitted candidate src and package.json into its installed package directory, then imported @handrail/mcp and @handrail/mcp/feedback by package name.",
+      "catalog_size": 16,
+      "new_operations_executed": 3,
+      "result": "passed with mock fetch; no network",
+      "types": "passed",
+      "script": "docs/qa/feedback-consumer-check.mjs",
+      "limit": "Overlay validates installed-tree imports/catalog/execution only. It is not an immutable candidate Git installation. That requires the owning pipeline commit/push first."
+    }
+  },
+  "read_only_contract_sources": [
+    {
+      "repo": "handrail",
+      "path": "src/server/api/enhancement-reporting.js",
+      "checkout_sha": "502e5bc8051ef78932b7ee423db2dd079c88d25c",
+      "content_sha256": "f9911865d9d6ded1beda614e2f3e926a5cccb2ca44495c967d3defc162d9a8b0"
+    },
+    {
+      "repo": "handrail",
+      "path": "src/server/api/mobile-bug-reports.js",
+      "checkout_sha": "502e5bc8051ef78932b7ee423db2dd079c88d25c",
+      "content_sha256": "e8024a15a6f326b55543b9ad2c454542a501f6f177164bf8b50ccbe7be7ddd1f"
+    },
+    {
+      "repo": "handrail",
+      "path": "src/server/services/enhancement-reporting.js",
+      "checkout_sha": "502e5bc8051ef78932b7ee423db2dd079c88d25c",
+      "content_sha256": "711532ed07d843178d8d3da58f246860cbd9d56a6a0c1fb771c628d3d3e5590b"
+    },
+    {
+      "repo": "handrail",
+      "path": "src/server/services/mobile-bug-reports.js",
+      "checkout_sha": "502e5bc8051ef78932b7ee423db2dd079c88d25c",
+      "content_sha256": "ee76ae597a5fc98c945ff2b27dc4121362be46ea2dec9f08cfe1a1b9b758825c"
+    },
+    {
+      "repo": "handrail",
+      "path": "src/server/services/feedback-reporter-notifications.js",
+      "checkout_sha": "502e5bc8051ef78932b7ee423db2dd079c88d25c",
+      "content_sha256": "0059e8c5c93773b69b4e6f739fcd5b7652c7e74bf9ae5d1f0718d62f9f517e34"
+    },
+    {
+      "repo": "handrail",
+      "path": "src/server/services/feedback-notification-identity.js",
+      "checkout_sha": "502e5bc8051ef78932b7ee423db2dd079c88d25c",
+      "content_sha256": "a44587574e99e5c592b79e58a67ca52c5ec881fa0751689ec893b931a0dc2016"
+    },
+    {
+      "repo": "handrail-agent-sdk",
+      "path": "src/server/handrail-feedback.ts",
+      "checkout_sha": "170ccf247d0de457ad76d1b8a5d116f9c16a5c66",
+      "content_sha256": "e9276ae92a919ac0fb9f1cbc5abce32b91b99bd027d3b88c922eb3552d16c929"
+    }
+  ],
+  "preserved_holds": {
+    "no_new_qa_environment": true,
+    "no_avery_harness_migration": true,
+    "qa_fixture_worker": "b3dd09b0-bc94-576c-99e5-13002dd0c2f1",
+    "do_not_replay": [
+      "mills_flutter_d7874b4_reply_stop_canary_v1",
+      "mills_reply_770a148_staging_canary_v1"
+    ],
+    "storage": "712f7b61",
+    "recovery": "3c7e4a85",
+    "travel_question": "remains open",
+    "existing_deliveries": "web b01f9468/v1.0.364; iOS d7874b4f/1.0.280 build3551788; not repeated"
+  }
+}

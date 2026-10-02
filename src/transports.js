@@ -39,14 +39,19 @@ export async function startStreamableHttp({ host = "127.0.0.1", port = 3000, pat
       return;
     }
     const applicationSession = String(req.headers["x-handrail-application-session"] || "").trim();
+    const feedbackOptions = {
+      feedbackRuntime: undefined,
+      feedbackConfig: { ...(options.feedbackConfig || {}), sessionToken: applicationSession, applicationSessionToken: undefined },
+    };
     const connector = applicationSession
       ? await createConnectorServer({
         ...options,
+        ...feedbackOptions,
         client: undefined,
         discovery: undefined,
         config: { ...(options.config || {}), sessionToken: applicationSession },
       })
-      : await createConnectorServer({ ...options, client: bootstrap.client, discovery: bootstrap.discovery });
+      : await createConnectorServer({ ...options, ...feedbackOptions, config: { ...(options.config || {}), sessionToken: undefined, applicationSessionToken: undefined }, client: bootstrap.client, discovery: bootstrap.discovery });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     active.add({ connector, transport });
     try {

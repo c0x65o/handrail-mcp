@@ -99,6 +99,12 @@ async function requestJson(fetchImpl, url, init, { contractVersion = null } = {}
       status: response.status,
     });
   }
+  if (!object(body)) {
+    throw new HandrailApiError("Handrail returned an unreadable feedback response; the outcome is uncertain.", {
+      code: "feedback_transport_invalid_response",
+      status: 502,
+    });
+  }
   if (contractVersion) {
     const received = clean(body?.contract_version || body?.request?.contract_version, 40);
     if (received !== contractVersion) {
@@ -172,6 +178,7 @@ export function createBugFeedbackClient(config) {
         accessLevel: clean(reporter.access_level, 80) || null,
         role: clean(reporter.role, 80) || null,
         askOptions: Array.isArray(body.ask_options) ? body.ask_options : [],
+        reporterNotifications: object(body.reporter_notifications),
       };
     },
     async submit(input) {
@@ -217,6 +224,12 @@ export function createBugFeedbackClient(config) {
     },
     async restoreBug(requestId) {
       return (await request(ownedUrl(`bugs/${encodeURIComponent(requestId)}/archive`), { method: "DELETE" })).body;
+    },
+    async subscribe({ request_id: requestId, reporter_notification }) {
+      return (await request(new URL(`bugs/${encodeURIComponent(requestId)}/subscription`, `${reports}/`), {
+        method: "POST",
+        payload: { project_id: config.projectId, environment: config.environment, reporter_notification },
+      })).body;
     },
   });
 }
@@ -280,5 +293,11 @@ export function createEnhancementFeedbackClient(config) {
     dismiss: ({ request_id: requestId }) => request(`requests/${encodeURIComponent(requestId)}/dismiss`, { method: "POST", payload: {} }),
     restore: ({ request_id: requestId }) => request(`requests/${encodeURIComponent(requestId)}/dismiss`, { method: "DELETE" }),
     cancel: ({ request_id: requestId, reason }) => request(`requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST", payload: { reason: reason || null } }),
+    clarify: ({ request_id: requestId, assessment_id, assessment_version, answer }) => request(`requests/${encodeURIComponent(requestId)}/clarifications`, {
+      method: "POST", payload: { assessment_id, assessment_version, answer },
+    }),
+    subscribe: ({ request_id: requestId, reporter_notification }) => request(`requests/${encodeURIComponent(requestId)}/subscription`, {
+      method: "POST", payload: { reporter_notification },
+    }),
   });
 }

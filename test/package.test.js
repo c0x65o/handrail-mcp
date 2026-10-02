@@ -21,11 +21,12 @@ test("package entrypoint and CLI expose matching connector/API versions", async 
   assert.equal(release.api_contract_version, connector.API_CONTRACT_VERSION);
   assert.equal(release.immutable_release_tag, `v${packageJson.version}`);
   assert.equal(release.artifact, `handrail-mcp-${packageJson.version}.tgz`);
-  assert.equal(release.approved_git_pin, `github:c0x65o/handrail-mcp#v${packageJson.version}`);
+  assert.equal(release.approved_git_pin, null);
+  assert.equal(release.immutable_source_url, "https://github.com/c0x65o/handrail-mcp.git");
   assert.equal(release.npm_publication_status, "absent");
   assert.equal(release.approved_package_pin, null);
   assert.ok(readme.includes(`Current connector version: \`${packageJson.version}\``));
-  assert.ok(readme.includes(`github:c0x65o/handrail-mcp#v${packageJson.version}`));
+  assert.ok(readme.includes("git+https://github.com/c0x65o/handrail-mcp.git#<full-40-character-commit-SHA>"));
   const { stdout } = await execFileAsync(process.execPath, ["src/cli.js", "--version"]);
   assert.match(stdout, new RegExp(`${packageJson.version}.*Handrail API v1`));
 });

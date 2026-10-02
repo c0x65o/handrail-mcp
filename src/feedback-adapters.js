@@ -81,6 +81,10 @@ async function enhancementRuntime(config) {
 
 export async function loadFeedbackRuntime(options = {}, env = process.env) {
   const config = resolveFeedbackConfig(options.config || {}, env);
+  return runtimeFromConfig(config);
+}
+
+async function runtimeFromConfig(config) {
   if (!config.requested) {
     return Object.freeze({ requested: false, config, readiness: null, adapters: Object.freeze({}) });
   }
@@ -102,10 +106,30 @@ export async function loadFeedbackRuntime(options = {}, env = process.env) {
   });
 }
 
+export function feedbackOperationAvailable(readiness, definition) {
+  if (!readiness?.ready) return false;
+  const discovery = readiness.discovery;
+  if (definition.operation === "clarify") {
+    return discovery?.enhancement_reporting?.workflow?.clarification_response === true;
+  }
+  if (definition.operation === "subscribe") {
+    return (definition.surface === "bug" ? discovery?.reporterNotifications : discovery?.reporter_notifications)?.available === true;
+  }
+  return true;
+}
+
 export async function callFeedbackAdapter(runtime, definition, args) {
-  if (definition.surface === "feedback") return runtime.readiness;
-  const client = runtime.adapters[definition.surface];
-  if (!client) throw Object.assign(new Error(`${definition.surface} reporter is not ready.`), { code: `${definition.surface}_reporter_unavailable` });
+  if (definition.surface === "feedback") return (await runtimeFromConfig(runtime.config)).readiness;
+  // Long-lived in-process/stdio connectors must not reuse admission evidence.
+  // The canonical route also verifies identity and ownership at mutation time.
+  const current = await (definition.surface === "bug" ? bugRuntime : enhancementRuntime)({
+    ...runtime.config[definition.surface], sessionToken: runtime.config.sessionToken,
+  });
+  const client = current.client;
+  if (!client || !feedbackOperationAvailable(current.readiness, definition)) {
+    throw Object.assign(new Error(`${definition.surface} reporter operation is unavailable; refresh discovery.`), { code: `${definition.surface}_reporter_unavailable` });
+  }
+  if (definition.operation === "subscribe") return client.subscribe(args);
   if (definition.surface === "bug") {
     if (definition.operation === "submit") return client.submit({
       title: args.title,
@@ -128,5 +152,6 @@ export async function callFeedbackAdapter(runtime, definition, args) {
   if (definition.operation === "archive") return client.dismiss({ request_id: args.request_id });
   if (definition.operation === "restore") return client.restore({ request_id: args.request_id });
   if (definition.operation === "cancel") return client.cancel({ request_id: args.request_id, reason: args.reason });
+  if (definition.operation === "clarify") return client.clarify(args);
   throw new Error("Unsupported feedback reporter operation.");
 }

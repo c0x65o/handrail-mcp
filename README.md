@@ -7,7 +7,7 @@ owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.2.1`. Developer Change API contract: `v1`.
+Current connector version: `0.2.2`. Developer Change API contract: `v1`.
 Customer feedback composition contract: `v2`.
 
 ## Runtime contract
@@ -57,8 +57,8 @@ authentication method, the canonical Known User `role` (`requester`,
 Node.js 20 or newer is required.
 
 ```sh
-npx --package github:c0x65o/handrail-mcp handrail-mcp --transport stdio
-npx --package github:c0x65o/handrail-mcp handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
+npx --no-install handrail-mcp --transport stdio
+npx --no-install handrail-mcp --transport http --host 127.0.0.1 --port 3000 --path /mcp
 handrail-mcp --version
 ```
 
@@ -69,9 +69,9 @@ the host deployment's responsibility.
 Reporter readiness decides which customer feedback tools are registered:
 
 - `handrail_feedback_v2_discover`
-- `handrail_bug_reporter_v1_submit`, `list`, `lookup`, `archive`, `restore`
+- `handrail_bug_reporter_v1_submit`, `list`, `lookup`, `archive`, `restore`, `subscribe`
 - `handrail_enhancement_reporter_v1_submit`, `list`, `lookup`,
-  `release_status`, `archive`, `restore`, `cancel`
+  `release_status`, `archive`, `restore`, `cancel`, `clarify`, `subscribe`
 
 Bug tools call the canonical Bug Reporting API, so accepted reports create or
 deduplicate canonical `pm_bugs` and then enter existing classification,
@@ -82,6 +82,42 @@ read-only assessment and risk-gated implementation policy. Neither path writes
 `assistant_bridge_requests`.
 Bug submit requires a stable `event_id`; enhancement submit requires a stable
 `idempotency_key`. Reuse either identity only for an exact retry.
+
+Feedback discovery is refreshed before each call, including long-lived stdio
+connections. Clarify is advertised only when canonical discovery reports
+`enhancement_reporting.workflow.clarification_response: true`; subscribe requires
+`reporter_notifications.available: true` (verified Known User with a configured
+email). These flags are checked again at invocation. The canonical route remains
+the authority for current ownership, source revision, credential and request state.
+
+`handrail_enhancement_reporter_v1_clarify` accepts
+`{ request_id, assessment_id, assessment_version, answer }`. Read the current
+`clarification` from enhancement lookup and require `response_allowed: true`.
+The version is a positive safe integer and the nonblank answer is at most 4,000
+characters. Preserve the request/assessment/version/answer for an exact retry.
+Conflict or stale errors require a fresh lookup and user input for the current
+question; never replace work or reuse an answer for changed scope automatically.
+An `answered: true` response can include a warning that the saved answer's
+assessment needs native recovery. It does not approve implementation or release.
+
+Both `subscribe` tools require
+`{ request_id, reporter_notification: { notify_on_resolution: true, consent_version?: "v1" } }`.
+Consent must come from the user; there is no default opt-in. The version is an
+optional nonblank string up to 40 characters (upstream defaults to `v1`). The
+recipient comes from the current verified session, never a tool email argument.
+The result contains `notification_subscription: { active, created, recipient_hint,
+subscribed_at }`; enhancement also returns `contract_version: "v1"`. An exact
+active subscription returns `created: false`. This records email consent; it is
+neither a delivered notification nor proof that the work is ready. Handrail owns
+the canonical fixed-lifecycle email dispatch and its deduplication.
+
+Subscriptions grant no background lookup credential, refresh token, webhook or
+conversation callback. A host must supply fresh authorized identity for SDK
+observations without saving raw sessions/cookies. Agent SDK owns observation
+polling and conversation notification deduplication; MCP does not add a scheduler.
+The integration handoff in `docs/qa/feedback-follow-through.json` records the
+remaining Mills binding and verification dependencies. Public input/response
+types and the catalog are available from `@handrail/mcp/feedback`.
 
 The separately named developer compatibility tools are:
 
@@ -129,12 +165,19 @@ versioned API when invoked; no KB body or prompt implementation is packaged.
 
 ## Safety and errors
 
-Only discovery, principal-scoped list, lookup, release status, idempotent
+For the developer compatibility client, only discovery, principal-scoped list, lookup, release status, idempotent
 submit, idempotent dismissal, and safe cancellation receive bounded retries
 (`2` by default). Clarification is non-idempotent and is not
 retried; binary attachment downloads are also single-attempt. Retryable responses are limited to 408, 425, 429, and selected
 5xx statuses. Requests time out after 10 seconds by default. Error response
 fields with credential-like keys are redacted.
+
+Feedback HTTP calls are single-attempt. A timeout, dropped response, or unreadable
+success response leaves the outcome uncertain. Preserve the original canonical
+ID and exact input for reconciliation; do not generate replacement intent IDs.
+Enhancement clarification supports canonical exact replay despite having no
+caller-provided idempotency key. Subscription deduplication is canonical by
+project/report kind/report ID/verified email while the subscription is active.
 
 Configured and discovered contract versions must both equal `v1`; incompatible
 versions fail startup. Successful tool results report both connector and API
@@ -161,10 +204,17 @@ GET /api/assistant-change-bridge/v1/discovery
 
 ## Release identity
 
-Internal consumers install the latest package directly from the canonical
-public Git repository. They do not wait for a Handrail-provided tag, commit, or
-archive before integrating. The consumer lockfile records the exact revision
-that npm resolved, and Owner Maintenance compares that evidence with the
-repository's current package version and Git revision to create controlled
-upgrade work. npm publication is currently absent, so compatibility and install
-guidance must not claim an npm registry release or require a vendored tarball.
+Internal consumers install from the canonical public HTTPS Git repository with
+a full committed SHA and matching package-manager lockfile:
+
+```text
+git+https://github.com/c0x65o/handrail-mcp.git#<full-40-character-commit-SHA>
+```
+
+Resolve the latest committed revision for new installations; preserve the frozen
+revision for controlled upgrades. Do not use branch, tag, registry, tarball,
+file or workspace dependencies for Handrail packages. This JavaScript package
+requires no separate compilation or packaging step. The queued-work pipeline
+owns the version bump, whole-checkout commit and push; an uncommitted candidate
+has no published SHA. Consumer pins must use the resulting published revision,
+not this candidate's base revision. npm publication is absent.

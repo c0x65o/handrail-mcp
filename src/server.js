@@ -3,7 +3,7 @@ import * as z from "zod/v4";
 
 import { HandrailClient } from "./client.js";
 import { redact } from "./errors.js";
-import { callFeedbackAdapter, loadFeedbackRuntime } from "./feedback-adapters.js";
+import { callFeedbackAdapter, feedbackOperationAvailable, loadFeedbackRuntime } from "./feedback-adapters.js";
 import {
   DEVELOPER_TOOL_NAMES,
   FEEDBACK_TOOL_DEFINITIONS,
@@ -151,17 +151,17 @@ export async function createConnectorServer(options = {}) {
 
   if (feedbackRuntime.requested) {
     for (const definition of FEEDBACK_TOOL_DEFINITIONS) {
-      if (definition.surface !== "feedback" && !feedbackRuntime.adapters[definition.surface]) continue;
+      if (definition.surface !== "feedback" && !feedbackOperationAvailable(feedbackRuntime.readiness?.reporters[definition.surface], definition)) continue;
       server.registerTool(definition.name, {
         title: definition.title,
         description: definition.description,
-        inputSchema: definition.schema,
+        inputSchema: definition.strict ? z.strictObject(definition.schema) : definition.schema,
         annotations: {
           readOnlyHint: definition.readOnly === true,
           idempotentHint: definition.readOnly === true
             || definition.surface === "bug" && definition.operation === "submit"
             || definition.surface === "enhancement" && definition.operation === "submit"
-            || ["archive", "restore"].includes(definition.operation),
+            || ["archive", "restore", "clarify", "subscribe"].includes(definition.operation),
           destructiveHint: definition.operation === "cancel",
           openWorldHint: false,
         },
