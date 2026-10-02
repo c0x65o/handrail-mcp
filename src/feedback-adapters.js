@@ -109,6 +109,9 @@ async function runtimeFromConfig(config) {
 export function feedbackOperationAvailable(readiness, definition) {
   if (!readiness?.ready) return false;
   const discovery = readiness.discovery;
+  if (["followUp", "stopFollowUp"].includes(definition.operation)) {
+    return (definition.surface === "bug" ? discovery?.reporterObservations : discovery?.reporter_observations)?.available === true;
+  }
   if (definition.operation === "clarify") {
     return discovery?.enhancement_reporting?.workflow?.clarification_response === true;
   }
@@ -129,6 +132,8 @@ export async function callFeedbackAdapter(runtime, definition, args) {
   if (!client || !feedbackOperationAvailable(current.readiness, definition)) {
     throw Object.assign(new Error(`${definition.surface} reporter operation is unavailable; refresh discovery.`), { code: `${definition.surface}_reporter_unavailable` });
   }
+  if (definition.operation === "followUp") return client.grantObservation(args);
+  if (definition.operation === "stopFollowUp") return client.cancelObservation(args.id, args.binding);
   if (definition.operation === "subscribe") return client.subscribe(args);
   if (definition.surface === "bug") {
     if (definition.operation === "submit") return client.submit({

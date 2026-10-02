@@ -47,6 +47,8 @@ export const FEEDBACK_TOOL_NAMES: Readonly<{
   bugLookup: "handrail_bug_reporter_v1_lookup";
   bugArchive: "handrail_bug_reporter_v1_archive";
   bugRestore: "handrail_bug_reporter_v1_restore";
+  bugFollowUp: "handrail_bug_reporter_v1_follow_up";
+  bugStopFollowUp: "handrail_bug_reporter_v1_stop_follow_up";
   bugSubscribe: "handrail_bug_reporter_v1_subscribe";
   enhancementSubmit: "handrail_enhancement_reporter_v1_submit";
   enhancementList: "handrail_enhancement_reporter_v1_list";
@@ -56,6 +58,8 @@ export const FEEDBACK_TOOL_NAMES: Readonly<{
   enhancementRestore: "handrail_enhancement_reporter_v1_restore";
   enhancementCancel: "handrail_enhancement_reporter_v1_cancel";
   enhancementClarify: "handrail_enhancement_reporter_v1_clarify";
+  enhancementFollowUp: "handrail_enhancement_reporter_v1_follow_up";
+  enhancementStopFollowUp: "handrail_enhancement_reporter_v1_stop_follow_up";
   enhancementSubscribe: "handrail_enhancement_reporter_v1_subscribe";
 }>;
 export const DEVELOPER_TOOL_NAMES: Readonly<{
@@ -70,7 +74,7 @@ export const DEVELOPER_TOOL_NAMES: Readonly<{
 }>;
 export interface FeedbackToolDefinition {
   surface: "feedback" | "bug" | "enhancement";
-  operation: "discover" | "submit" | "list" | "lookup" | "releaseStatus" | "archive" | "restore" | "cancel" | "clarify" | "subscribe";
+  operation: "followUp" | "stopFollowUp" | "discover" | "submit" | "list" | "lookup" | "releaseStatus" | "archive" | "restore" | "cancel" | "clarify" | "subscribe";
   name: typeof FEEDBACK_TOOL_NAMES[keyof typeof FEEDBACK_TOOL_NAMES];
   title: string;
   description: string;
@@ -79,3 +83,17 @@ export interface FeedbackToolDefinition {
   strict?: boolean;
 }
 export const FEEDBACK_TOOL_DEFINITIONS: readonly FeedbackToolDefinition[];
+
+export interface FeedbackObservationBinding {
+  project_id: string; service_env_id: string; environment: string;
+  user_ref: string; tenant_ref: string; conversation_id: string;
+}
+export interface FeedbackObservationGrant {
+  id: string; kind: "bug" | "enhancement"; report_id: string;
+  binding: FeedbackObservationBinding; expires_at: string; cancelled: boolean;
+}
+/** Server-only delegated transport. Never exposes mutation or session APIs. */
+export function createFeedbackObservationClient(options?: { config?: Record<string, unknown>; env?: Record<string,string|undefined> }): {
+  read(grant: FeedbackObservationGrant): Promise<{ contract_version: "v1"; observation: FeedbackObservationGrant; record: unknown }>;
+  cancel(grant: FeedbackObservationGrant): Promise<unknown>;
+};

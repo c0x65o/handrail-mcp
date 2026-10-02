@@ -7,7 +7,7 @@ owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.2.2`. Developer Change API contract: `v1`.
+Current connector version: `0.2.3`. Developer Change API contract: `v1`.
 Customer feedback composition contract: `v2`.
 
 ## Runtime contract
@@ -218,3 +218,28 @@ requires no separate compilation or packaging step. The queued-work pipeline
 owns the version bump, whole-checkout commit and push; an uncommitted candidate
 has no published SHA. Consumer pins must use the resulting published revision,
 not this candidate's base revision. npm publication is absent.
+
+#### Original-conversation follow-up
+
+Canonical discovery may advertise `reporter_observations` v1. The matching
+`handrail_{bug,enhancement}_reporter_v1_follow_up` tool requires an explicit user
+request; the host supplies the stable observation ID, original conversation,
+tenant/principal/project/runtime/environment binding and expiry. The matching
+`stop_follow_up` cancels only the return. This is independent of email consent.
+Existing session-authenticated reporter tools retain their original checks.
+
+A background worker imports `createFeedbackObservationClient` from
+`@handrail/mcp/feedback` with its existing exact-runtime server configuration.
+It calls `read(savedGrant)` or `cancel(savedGrant)` without a user session. The
+client exposes no report mutation methods or callback URL parameter. Handrail
+rechecks current credentials, rotation/revocation, membership/source revision,
+expiry and binding, and returns only canonical lifecycle evidence. The Agent
+SDK owns the watch lifecycle; the application's existing conversation outbox
+owns durable rendering and duplicate acknowledgement recovery.
+
+Deploy Handrail's extension and use native credential issuance/rotation to admit
+the new exact enhancement API routes before adopting this source. Discovery
+hides these tools for an old credential; runtime reconciliation never broadens
+its allowlist silently. Publish through canonical Git operations, then install
+from a public HTTPS full40 SHA with a matching lockfile. Source-fixture checks
+are not evidence of installed or deployed support.

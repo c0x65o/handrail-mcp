@@ -148,7 +148,7 @@ export function createBugFeedbackClient(config) {
   const headers = (body = false) => ({
     accept: "application/json",
     authorization: `Bearer ${config.reportToken}`,
-    [APPLICATION_SESSION_TOKEN_HEADER]: config.sessionToken,
+    ...(config.sessionToken ? { [APPLICATION_SESSION_TOKEN_HEADER]: config.sessionToken } : {}),
     ...(body ? { "content-type": "application/json" } : {}),
   });
   const request = (url, { method = "GET", payload } = {}) => requestJson(fetchImpl, url, {
@@ -166,6 +166,9 @@ export function createBugFeedbackClient(config) {
   );
 
   return Object.freeze({
+    grantObservation: ({ request_id, ...payload }) => request(ownedUrl(`bugs/${encodeURIComponent(request_id)}/observations`), { method: "POST", payload }).then(r => r.body),
+    readObservation: (id, binding) => request(ownedUrl(`observations/${encodeURIComponent(id)}/read`), { method: "POST", payload: { binding } }).then(r => r.body),
+    cancelObservation: (id, binding) => request(ownedUrl(`observations/${encodeURIComponent(id)}/cancel`), { method: "POST", payload: { binding } }).then(r => r.body),
     async discoverPolicy() {
       const { body } = await request(ownedUrl("policy"));
       const reporter = object(body?.reporter);
@@ -179,6 +182,7 @@ export function createBugFeedbackClient(config) {
         role: clean(reporter.role, 80) || null,
         askOptions: Array.isArray(body.ask_options) ? body.ask_options : [],
         reporterNotifications: object(body.reporter_notifications),
+        reporterObservations: object(body.reporter_observations),
       };
     },
     async submit(input) {
@@ -255,7 +259,7 @@ export function createEnhancementFeedbackClient(config) {
     accept: "application/json",
     authorization: `Bearer ${config.token}`,
     "x-handrail-api-contract-version": config.contractVersion,
-    [ENHANCEMENT_SESSION_HEADER]: config.sessionToken,
+    ...(config.sessionToken ? { [ENHANCEMENT_SESSION_HEADER]: config.sessionToken } : {}),
     ...(body ? { "content-type": "application/json" } : {}),
     ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
   });
@@ -271,6 +275,9 @@ export function createEnhancementFeedbackClient(config) {
   ).then(({ body }) => body);
 
   return Object.freeze({
+    grantObservation: ({ request_id, ...payload }) => request(`requests/${encodeURIComponent(request_id)}/observations`, { method: "POST", payload }),
+    readObservation: (id, binding) => request(`observations/${encodeURIComponent(id)}/read`, { method: "POST", payload: { binding } }),
+    cancelObservation: (id, binding) => request(`observations/${encodeURIComponent(id)}/cancel`, { method: "POST", payload: { binding } }),
     discover: () => request("discovery"),
     submit: (input) => request("requests", {
       method: "POST",

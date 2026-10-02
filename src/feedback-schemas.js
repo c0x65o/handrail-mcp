@@ -1,5 +1,12 @@
 import * as z from "zod/v4";
 
+export { createFeedbackObservationClient } from "./feedback-observations.js";
+const observation = {
+  id: z.string().uuid().optional().describe("Host-supplied durable follow-up identity."),
+  binding: z.strictObject({ project_id: z.string().uuid(), service_env_id: z.string().uuid(), environment: z.enum(["dev","staging","production"]),
+    user_ref: z.string().min(1).max(512), tenant_ref: z.string().min(1).max(512), conversation_id: z.string().min(1).max(512) }).optional(),
+  expires_at: z.string().datetime().optional(),
+};
 const requestId = { request_id: z.string().min(1).max(160) };
 const subscription = {
   ...requestId,
@@ -21,6 +28,8 @@ export const FEEDBACK_TOOL_NAMES = Object.freeze({
   bugLookup: "handrail_bug_reporter_v1_lookup",
   bugArchive: "handrail_bug_reporter_v1_archive",
   bugRestore: "handrail_bug_reporter_v1_restore",
+  bugFollowUp: "handrail_bug_reporter_v1_follow_up",
+  bugStopFollowUp: "handrail_bug_reporter_v1_stop_follow_up",
   bugSubscribe: "handrail_bug_reporter_v1_subscribe",
   enhancementSubmit: "handrail_enhancement_reporter_v1_submit",
   enhancementList: "handrail_enhancement_reporter_v1_list",
@@ -30,6 +39,8 @@ export const FEEDBACK_TOOL_NAMES = Object.freeze({
   enhancementRestore: "handrail_enhancement_reporter_v1_restore",
   enhancementCancel: "handrail_enhancement_reporter_v1_cancel",
   enhancementClarify: "handrail_enhancement_reporter_v1_clarify",
+  enhancementFollowUp: "handrail_enhancement_reporter_v1_follow_up",
+  enhancementStopFollowUp: "handrail_enhancement_reporter_v1_stop_follow_up",
   enhancementSubscribe: "handrail_enhancement_reporter_v1_subscribe",
 });
 
@@ -45,6 +56,10 @@ export const DEVELOPER_TOOL_NAMES = Object.freeze({
 });
 
 export const FEEDBACK_TOOL_DEFINITIONS = Object.freeze([
+  { surface: "enhancement", operation: "followUp", name: FEEDBACK_TOOL_NAMES.enhancementFollowUp, title: "Return when my enhancement is ready", description: "Only when the user explicitly requests follow-up, authorize observation of this report and return to this original conversation. Host supplies the binding, stable ID and expiry. No email enrollment, report changes or release authority.", schema: { ...requestId, ...observation, follow_up_requested: z.literal(true) }, strict: true },
+  { surface: "enhancement", operation: "stopFollowUp", name: FEEDBACK_TOOL_NAMES.enhancementStopFollowUp, title: "Stop my enhancement follow-up", description: "Cancel the observation for this report in the original conversation. The report itself is unchanged. Host supplies the saved observation identity and binding.", schema: { ...requestId, ...observation }, strict: true },
+  { surface: "bug", operation: "followUp", name: FEEDBACK_TOOL_NAMES.bugFollowUp, title: "Return when my bug is ready", description: "Only when the user explicitly requests follow-up, authorize observation of this report and return to this original conversation. Host supplies the binding, stable ID and expiry. No email enrollment, report changes or release authority.", schema: { ...requestId, ...observation, follow_up_requested: z.literal(true) }, strict: true },
+  { surface: "bug", operation: "stopFollowUp", name: FEEDBACK_TOOL_NAMES.bugStopFollowUp, title: "Stop my bug follow-up", description: "Cancel the observation for this report in the original conversation. The report itself is unchanged. Host supplies the saved observation identity and binding.", schema: { ...requestId, ...observation }, strict: true },
   { surface: "feedback", operation: "discover", name: FEEDBACK_TOOL_NAMES.discover, title: "Discover Handrail feedback transports", description: "Report whether the independent bug and enhancement transports are exactly configured, session-authenticated, and accepted by their canonical Handrail discovery endpoints.", schema: {}, readOnly: true },
   { surface: "bug", operation: "submit", name: FEEDBACK_TOOL_NAMES.bugSubmit, title: "Report a Handrail bug", description: "Create or deduplicate a canonical Handrail PM bug through the configured bug reporter. This never creates an Assistant Bridge request or directly grants implementation or deployment authority.", schema: {
     title: z.string().min(1).max(240),
