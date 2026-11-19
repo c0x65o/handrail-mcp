@@ -37,6 +37,9 @@ export interface EnhancementClarificationResponse {
 }
 export const FEEDBACK_TOOL_NAMES: Readonly<{
   discover: "handrail_feedback_v2_discover";
+  bugAddAttachments: "handrail_bug_reporter_v1_add_attachments";
+  bugListAttachments: "handrail_bug_reporter_v1_list_attachments";
+  bugGetAttachment: "handrail_bug_reporter_v1_get_attachment";
   bugSubmit: "handrail_bug_reporter_v1_submit";
   bugList: "handrail_bug_reporter_v1_list";
   bugAnswer: "handrail_bug_reporter_v1_answer";
@@ -46,6 +49,9 @@ export const FEEDBACK_TOOL_NAMES: Readonly<{
   bugFollowUp: "handrail_bug_reporter_v1_follow_up";
   bugStopFollowUp: "handrail_bug_reporter_v1_stop_follow_up";
   bugSubscribe: "handrail_bug_reporter_v1_subscribe";
+  enhancementAddAttachments: "handrail_enhancement_reporter_v1_add_attachments";
+  enhancementListAttachments: "handrail_enhancement_reporter_v1_list_attachments";
+  enhancementGetAttachment: "handrail_enhancement_reporter_v1_get_attachment";
   enhancementSubmit: "handrail_enhancement_reporter_v1_submit";
   enhancementList: "handrail_enhancement_reporter_v1_list";
   enhancementAnswer: "handrail_enhancement_reporter_v1_answer";
@@ -71,7 +77,7 @@ export const DEVELOPER_TOOL_NAMES: Readonly<{
 }>;
 export interface FeedbackToolDefinition {
   surface: "feedback" | "bug" | "enhancement";
-  operation: "followUp" | "stopFollowUp" | "discover" | "submit" | "list" | "lookup" | "releaseStatus" | "archive" | "restore" | "cancel" | "clarify" | "answer" | "subscribe";
+  operation: "addAttachments" | "listAttachments" | "getAttachment" | "followUp" | "stopFollowUp" | "discover" | "submit" | "list" | "lookup" | "releaseStatus" | "archive" | "restore" | "cancel" | "clarify" | "answer" | "subscribe";
   name: typeof FEEDBACK_TOOL_NAMES[keyof typeof FEEDBACK_TOOL_NAMES];
   title: string;
   description: string;

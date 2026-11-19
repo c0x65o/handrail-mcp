@@ -279,3 +279,34 @@ test("feedback-only registers exactly the conversation tools and sends scoped an
   }
   assert.deepEqual(tools.map(tool => tool.name).sort(), expected.sort());
 });
+
+test("document-capable feedback tools file, update, list and read owned attachments", async t => {
+  const calls = [];
+  const transport = feedbackFetch(calls, {
+    bugPolicy: bugPolicy({ document_attachments: true }),
+    enhancementDiscovery: enhancementDiscovery({ document_attachments: true }),
+  });
+  const files = [{ filename: "example.csv", data_url: "data:text/csv;base64,YSxi" }];
+  const fetch = async (url, init) => {
+    const parsed = new URL(url);
+    if (!parsed.pathname.includes("/attachments")) return transport(url, init);
+    assert.ok(parsed.pathname.includes("/r1/attachments"));
+    if (init.method === "POST") assert.deepEqual(JSON.parse(init.body), { attachments: files });
+    if (parsed.pathname.endsWith("/content")) {
+      assert.equal(parsed.searchParams.get("format"), "text");
+      return json({ text: "a,b", contract_version: "v1" });
+    }
+    return json({ attachments: [{ id: "a1" }], contract_version: "v1" });
+  };
+  const { connected } = await listed({ client: disabledBridge(), feedbackConfig: { ...base, fetch }, env: {} });
+  t.after(() => connected.close());
+  for (const kind of ["bug", "enhancement"]) {
+    const call = async (operation, args) => (await connected.client.callTool({ name: FEEDBACK_TOOL_NAMES[kind + operation], arguments: args })).structuredContent;
+    await call("Submit", { title: "Report", description: "Document", attachments: files,
+      ...(kind === "bug" ? { event_id: "document-1" } : { idempotency_key: "intent", external_conversation_id: "chat" }) });
+    assert.deepEqual(calls.at(-1).body.attachments, files);
+    assert.equal((await call("AddAttachments", { request_id: "r1", attachments: files })).attachments.length, 1);
+    const [file] = (await call("ListAttachments", { request_id: "r1" })).attachments;
+    assert.equal((await call("GetAttachment", { request_id: "r1", attachment_id: file.id, format: "text" })).text, "a,b");
+  }
+});

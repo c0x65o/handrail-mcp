@@ -47,6 +47,11 @@ function toolResult(operation, payload) {
     ...payload,
     connector: versionMetadata(),
   });
+  // These fields are the requested, bounded file chunk. Truncating them would corrupt downloads.
+  if (operation === "getAttachment") {
+    if (typeof payload.data_base64 === "string" && payload.data_base64.length <= 16384) result.data_base64 = payload.data_base64;
+    if (typeof payload.text === "string" && payload.text.length <= 8192) result.text = payload.text;
+  }
   return {
     content: [{ type: "text", text: JSON.stringify(result) }],
     structuredContent: result,
@@ -154,7 +159,7 @@ export async function createConnectorServer(options = {}) {
 
   if (feedbackRuntime.requested) {
     for (const definition of FEEDBACK_TOOL_DEFINITIONS) {
-      if (!extended && !["discover", "submit", "list", "lookup", "answer", "followUp", "stopFollowUp"].includes(definition.operation)) continue;
+      if (!extended && !["discover", "submit", "list", "lookup", "addAttachments", "listAttachments", "getAttachment", "answer", "followUp", "stopFollowUp"].includes(definition.operation)) continue;
       if (definition.surface !== "feedback" && !feedbackOperationAvailable(feedbackRuntime.readiness?.reporters[definition.surface], definition)) continue;
       server.registerTool(definition.name, {
         title: definition.title,

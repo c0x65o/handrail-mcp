@@ -166,6 +166,9 @@ export function createBugFeedbackClient(config) {
   );
 
   return Object.freeze({
+    addAttachments: ({ request_id, attachments }) => request(ownedUrl(`bugs/${encodeURIComponent(request_id)}/attachments`), { method: "POST", payload: { attachments } }).then(r => r.body),
+    listAttachments: ({ request_id }) => request(ownedUrl(`bugs/${encodeURIComponent(request_id)}/attachments`)).then(r => r.body),
+    getAttachment: ({ request_id, attachment_id, offset, format, page }) => request(ownedUrl(`bugs/${encodeURIComponent(request_id)}/attachments/${encodeURIComponent(attachment_id)}/content`, { offset, format, page })).then(r => r.body),
     grantObservation: ({ request_id, ...payload }) => request(ownedUrl(`bugs/${encodeURIComponent(request_id)}/observations`), { method: "POST", payload }).then(r => r.body),
     readObservation: (id, binding) => request(ownedUrl(`observations/${encodeURIComponent(id)}/read`), { method: "POST", payload: { binding } }).then(r => r.body),
     cancelObservation: (id, binding) => request(ownedUrl(`observations/${encodeURIComponent(id)}/cancel`), { method: "POST", payload: { binding } }).then(r => r.body),
@@ -182,12 +185,14 @@ export function createBugFeedbackClient(config) {
         role: clean(reporter.role, 80) || null,
         askOptions: Array.isArray(body.ask_options) ? body.ask_options : [],
         reporterNotifications: object(body.reporter_notifications),
+        document_attachments: body.document_attachments === true,
         reporterObservations: object(body.reporter_observations),
       };
     },
     async submit(input) {
       const payload = {
         title: input.title,
+        attachments: input.attachments,
         description: input.description,
         severity: input.impact,
         reproducer: input.reproducer,
@@ -279,6 +284,9 @@ export function createEnhancementFeedbackClient(config) {
   ).then(({ body }) => body);
 
   return Object.freeze({
+    addAttachments: ({ request_id, attachments }) => request(`requests/${encodeURIComponent(request_id)}/attachments`, { method: "POST", payload: { attachments } }),
+    listAttachments: ({ request_id }) => request(`requests/${encodeURIComponent(request_id)}/attachments`),
+    getAttachment: ({ request_id, attachment_id, offset = 0, format = "bytes", page = 1 }) => request(`requests/${encodeURIComponent(request_id)}/attachments/${encodeURIComponent(attachment_id)}/content?offset=${offset}&format=${format}&page=${page}`),
     grantObservation: ({ request_id, ...payload }) => request(`requests/${encodeURIComponent(request_id)}/observations`, { method: "POST", payload }),
     readObservation: (id, binding) => request(`observations/${encodeURIComponent(id)}/read`, { method: "POST", payload: { binding } }),
     cancelObservation: (id, binding) => request(`observations/${encodeURIComponent(id)}/cancel`, { method: "POST", payload: { binding } }),

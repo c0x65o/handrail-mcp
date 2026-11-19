@@ -109,6 +109,7 @@ async function runtimeFromConfig(config) {
 export function feedbackOperationAvailable(readiness, definition) {
   if (!readiness?.ready) return false;
   const discovery = readiness.discovery;
+  if (["addAttachments", "listAttachments", "getAttachment"].includes(definition.operation)) return discovery?.document_attachments === true;
   if (["followUp", "stopFollowUp"].includes(definition.operation)) {
     return (definition.surface === "bug" ? discovery?.reporterObservations : discovery?.reporter_observations)?.available === true;
   }
@@ -132,9 +133,11 @@ export async function callFeedbackAdapter(runtime, definition, args) {
   if (!client || !feedbackOperationAvailable(current.readiness, definition)) {
     throw Object.assign(new Error(`${definition.surface} reporter operation is unavailable; refresh discovery.`), { code: `${definition.surface}_reporter_unavailable` });
   }
+  if (args.attachments && current.readiness.discovery?.document_attachments !== true) throw new Error("This reporter credential or host does not support document attachments.");
   if (["answer", "clarify"].includes(definition.operation)) return client.answer(args);
   if (definition.operation === "followUp") return client.grantObservation(args);
   if (definition.operation === "stopFollowUp") return client.cancelObservation(args.id, args.binding);
+  if (["addAttachments", "listAttachments", "getAttachment"].includes(definition.operation)) return client[definition.operation](args);
   if (definition.operation === "subscribe") return client.subscribe(args);
   if (definition.surface === "bug") {
     if (definition.operation === "submit") return client.submit({
@@ -145,6 +148,7 @@ export async function callFeedbackAdapter(runtime, definition, args) {
       route: args.route,
       appVersion: args.app_version,
       eventId: args.event_id,
+      attachments: args.attachments,
     });
     if (definition.operation === "list") return client.listBugs({ limit: args.limit, cursor: args.cursor, search: args.search, statusGroup: args.status_group, sort: args.sort, visibility: args.visibility });
     if (definition.operation === "lookup") return client.getBug(args.request_id);

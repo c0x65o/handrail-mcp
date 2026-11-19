@@ -7,6 +7,7 @@ const observation = {
     user_ref: z.string().min(1).max(512), tenant_ref: z.string().min(1).max(512), conversation_id: z.string().min(1).max(512) }).optional(),
   expires_at: z.string().datetime().optional(),
 };
+const attachmentBatch = z.array(z.strictObject({ filename: z.string().min(1).max(160), data_url: z.string().max(6990600).describe("Base64 data URL with the matching document or image MIME type.") })).min(1).max(4);
 const requestId = { request_id: z.string().min(1).max(160) };
 const answerSchema = {
   ...requestId,
@@ -29,6 +30,9 @@ const history = {
 
 export const FEEDBACK_TOOL_NAMES = Object.freeze({
   discover: "handrail_feedback_v2_discover",
+  bugAddAttachments: "handrail_bug_reporter_v1_add_attachments",
+  bugListAttachments: "handrail_bug_reporter_v1_list_attachments",
+  bugGetAttachment: "handrail_bug_reporter_v1_get_attachment",
   bugSubmit: "handrail_bug_reporter_v1_submit",
   bugList: "handrail_bug_reporter_v1_list",
   bugAnswer: "handrail_bug_reporter_v1_answer",
@@ -38,6 +42,9 @@ export const FEEDBACK_TOOL_NAMES = Object.freeze({
   bugFollowUp: "handrail_bug_reporter_v1_follow_up",
   bugStopFollowUp: "handrail_bug_reporter_v1_stop_follow_up",
   bugSubscribe: "handrail_bug_reporter_v1_subscribe",
+  enhancementAddAttachments: "handrail_enhancement_reporter_v1_add_attachments",
+  enhancementListAttachments: "handrail_enhancement_reporter_v1_list_attachments",
+  enhancementGetAttachment: "handrail_enhancement_reporter_v1_get_attachment",
   enhancementSubmit: "handrail_enhancement_reporter_v1_submit",
   enhancementList: "handrail_enhancement_reporter_v1_list",
   enhancementAnswer: "handrail_enhancement_reporter_v1_answer",
@@ -64,12 +71,19 @@ export const DEVELOPER_TOOL_NAMES = Object.freeze({
 });
 
 export const FEEDBACK_TOOL_DEFINITIONS = Object.freeze([
+  { surface: "bug", operation: "addAttachments", name: FEEDBACK_TOOL_NAMES.bugAddAttachments, title: "Attach files to my bug", description: "Upload documents or images to this existing report. Exact repeated files are deduplicated.", schema: { ...requestId, attachments: attachmentBatch }, strict: true },
+  { surface: "bug", operation: "listAttachments", name: FEEDBACK_TOOL_NAMES.bugListAttachments, title: "List files on my bug", description: "Read attachment IDs, filenames, types and sizes on this report.", schema: requestId, strict: true, readOnly: true },
+  { surface: "bug", operation: "getAttachment", name: FEEDBACK_TOOL_NAMES.bugGetAttachment, title: "Read a file on my bug", description: "Use format=text for PDF (one-based page), CSV or TXT. Use format=bytes for original bytes in base64 chunks. Continue at next_offset until null. Decode chunks in order to open images, extract PDF text, or read UTF-8 CSV and text.", schema: { ...requestId, attachment_id: z.string().min(1).max(160), offset: z.number().int().nonnegative().optional(), format: z.enum(["bytes", "text"]).optional(), page: z.number().int().positive().optional() }, strict: true, readOnly: true },
+  { surface: "enhancement", operation: "addAttachments", name: FEEDBACK_TOOL_NAMES.enhancementAddAttachments, title: "Attach files to my enhancement", description: "Upload documents or images to this existing report. Exact repeated files are deduplicated.", schema: { ...requestId, attachments: attachmentBatch }, strict: true },
+  { surface: "enhancement", operation: "listAttachments", name: FEEDBACK_TOOL_NAMES.enhancementListAttachments, title: "List files on my enhancement", description: "Read attachment IDs, filenames, types and sizes on this report.", schema: requestId, strict: true, readOnly: true },
+  { surface: "enhancement", operation: "getAttachment", name: FEEDBACK_TOOL_NAMES.enhancementGetAttachment, title: "Read a file on my enhancement", description: "Use format=text for PDF (one-based page), CSV or TXT. Use format=bytes for original bytes in base64 chunks. Continue at next_offset until null. Decode chunks in order to open images, extract PDF text, or read UTF-8 CSV and text.", schema: { ...requestId, attachment_id: z.string().min(1).max(160), offset: z.number().int().nonnegative().optional(), format: z.enum(["bytes", "text"]).optional(), page: z.number().int().positive().optional() }, strict: true, readOnly: true },
   { surface: "enhancement", operation: "followUp", name: FEEDBACK_TOOL_NAMES.enhancementFollowUp, title: "Return when my enhancement is ready", description: "Only when the user explicitly requests follow-up, authorize observation of this report and return to this original conversation. Host supplies the binding, stable ID and expiry. No email enrollment, report changes or release authority.", schema: { ...requestId, ...observation, follow_up_requested: z.literal(true) }, strict: true },
   { surface: "enhancement", operation: "stopFollowUp", name: FEEDBACK_TOOL_NAMES.enhancementStopFollowUp, title: "Stop my enhancement follow-up", description: "Cancel the observation for this report in the original conversation. The report itself is unchanged. Host supplies the saved observation identity and binding.", schema: { ...requestId, ...observation }, strict: true },
   { surface: "bug", operation: "followUp", name: FEEDBACK_TOOL_NAMES.bugFollowUp, title: "Return when my bug is ready", description: "Only when the user explicitly requests follow-up, authorize observation of this report and return to this original conversation. Host supplies the binding, stable ID and expiry. No email enrollment, report changes or release authority.", schema: { ...requestId, ...observation, follow_up_requested: z.literal(true) }, strict: true },
   { surface: "bug", operation: "stopFollowUp", name: FEEDBACK_TOOL_NAMES.bugStopFollowUp, title: "Stop my bug follow-up", description: "Cancel the observation for this report in the original conversation. The report itself is unchanged. Host supplies the saved observation identity and binding.", schema: { ...requestId, ...observation }, strict: true },
   { surface: "feedback", operation: "discover", name: FEEDBACK_TOOL_NAMES.discover, title: "Discover Handrail feedback transports", description: "Report whether the independent bug and enhancement transports are exactly configured, session-authenticated, and accepted by their canonical Handrail discovery endpoints.", schema: {}, readOnly: true },
   { surface: "bug", operation: "submit", name: FEEDBACK_TOOL_NAMES.bugSubmit, title: "Report a Handrail bug", description: "Create or deduplicate a canonical Handrail PM bug through the configured bug reporter. This never creates an Assistant Bridge request or directly grants implementation or deployment authority.", schema: {
+    attachments: attachmentBatch.optional(),
     title: z.string().min(1).max(240),
     description: z.string().min(1).max(8_000),
     impact: z.enum(["critical", "high", "moderate", "low"]).optional(),
@@ -86,6 +100,7 @@ export const FEEDBACK_TOOL_DEFINITIONS = Object.freeze([
   { surface: "enhancement", operation: "submit", name: FEEDBACK_TOOL_NAMES.enhancementSubmit, title: "Suggest a Handrail enhancement", description: "Create a first-class PM enhancement and its read-only assessment through Enhancement Reporting. The submission contains no implementation, Codex, CI, commit, or deployment controls.", schema: {
     idempotency_key: z.string().min(1).max(255),
     external_conversation_id: z.string().min(1).max(512),
+    attachments: attachmentBatch.optional(),
     title: z.string().min(1).max(300),
     description: z.string().min(1).max(20_000),
     priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
