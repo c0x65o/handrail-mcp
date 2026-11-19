@@ -135,7 +135,18 @@ export async function callFeedbackAdapter(runtime, definition, args) {
   }
   if (args.attachments && current.readiness.discovery?.document_attachments !== true) throw new Error("This reporter credential or host does not support document attachments.");
   if (["answer", "clarify"].includes(definition.operation)) return client.answer(args);
-  if (definition.operation === "followUp") return client.grantObservation(args);
+  if (definition.operation === "followUp") {
+    const { attachments, ...consent } = args;
+    const grant = await client.grantObservation(consent);
+    if (!attachments) return grant;
+    try {
+      const updated = await client.addAttachments({ request_id: args.request_id, attachments });
+      return { ...grant, attachments: updated.attachments };
+    } catch (error) {
+      return { ...grant, attachment_update: { status: "unconfirmed", code: error.code || "attachment_update_failed",
+        message: "Follow-up was saved. List attachments to check which files were saved, then add any missing files." } };
+    }
+  }
   if (definition.operation === "stopFollowUp") return client.cancelObservation(args.id, args.binding);
   if (["addAttachments", "listAttachments", "getAttachment"].includes(definition.operation)) return client[definition.operation](args);
   if (definition.operation === "subscribe") return client.subscribe(args);

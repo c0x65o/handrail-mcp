@@ -283,12 +283,16 @@ test("feedback-only registers exactly the conversation tools and sends scoped an
 test("document-capable feedback tools file, update, list and read owned attachments", async t => {
   const calls = [];
   const transport = feedbackFetch(calls, {
-    bugPolicy: bugPolicy({ document_attachments: true }),
-    enhancementDiscovery: enhancementDiscovery({ document_attachments: true }),
+    bugPolicy: bugPolicy({ document_attachments: true, reporter_observations: { available: true } }),
+    enhancementDiscovery: enhancementDiscovery({ document_attachments: true, reporter_observations: { available: true } }),
   });
   const files = [{ filename: "example.csv", data_url: "data:text/csv;base64,YSxi" }];
   const fetch = async (url, init) => {
     const parsed = new URL(url);
+    if (parsed.pathname.endsWith("/observations")) {
+      assert.equal(JSON.parse(init.body).attachments, undefined);
+      return json({ contract_version: "v1", observation: { id: "grant" } });
+    }
     if (!parsed.pathname.includes("/attachments")) return transport(url, init);
     assert.ok(parsed.pathname.includes("/r1/attachments"));
     if (init.method === "POST") assert.deepEqual(JSON.parse(init.body), { attachments: files });
@@ -306,6 +310,9 @@ test("document-capable feedback tools file, update, list and read owned attachme
       ...(kind === "bug" ? { event_id: "document-1" } : { idempotency_key: "intent", external_conversation_id: "chat" }) });
     assert.deepEqual(calls.at(-1).body.attachments, files);
     assert.equal((await call("AddAttachments", { request_id: "r1", attachments: files })).attachments.length, 1);
+    const followed = await call("FollowUp", { request_id: "r1", follow_up_requested: true, attachments: files });
+    assert.equal(followed.observation.id, "grant");
+    assert.equal(followed.attachments.length, 1);
     const [file] = (await call("ListAttachments", { request_id: "r1" })).attachments;
     assert.equal((await call("GetAttachment", { request_id: "r1", attachment_id: file.id, format: "text" })).text, "a,b");
   }
