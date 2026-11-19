@@ -11,7 +11,7 @@ import { TOOL_DEFINITIONS } from "../src/schemas.js";
 import { discovery, enabledConfig, response } from "./helpers.js";
 
 test("Streamable HTTP starts, serves MCP, and shuts down cleanly", async () => {
-  const running = await startStreamableHttp({
+  const running = await startStreamableHttp({ profile: "extended",
     host: "127.0.0.1",
     port: 0,
     config: { ...enabledConfig, fetch: async () => response(discovery) },
@@ -28,7 +28,7 @@ test("Streamable HTTP starts, serves MCP, and shuts down cleanly", async () => {
 
 test("Streamable HTTP binds central discovery to the current application session", async () => {
   const centralCalls = [];
-  const running = await startStreamableHttp({
+  const running = await startStreamableHttp({ profile: "extended",
     host: "127.0.0.1",
     port: 0,
     config: {

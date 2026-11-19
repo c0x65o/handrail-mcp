@@ -223,6 +223,10 @@ export function createBugFeedbackClient(config) {
       const body = (await request(ownedUrl(`bugs/${encodeURIComponent(requestId)}`))).body;
       return body?.bug || body;
     },
+    async answer({ request_id, information_request_id, option, answer }) {
+      const url = ownedUrl(`bugs/${encodeURIComponent(request_id)}/information-requests/${encodeURIComponent(information_request_id)}/answer`);
+      return (await request(url, { method: "POST", payload: { option, answer } })).body;
+    },
     async archiveBug(requestId) {
       return (await request(ownedUrl(`bugs/${encodeURIComponent(requestId)}/archive`), { method: "PUT" })).body;
     },
@@ -300,8 +304,8 @@ export function createEnhancementFeedbackClient(config) {
     dismiss: ({ request_id: requestId }) => request(`requests/${encodeURIComponent(requestId)}/dismiss`, { method: "POST", payload: {} }),
     restore: ({ request_id: requestId }) => request(`requests/${encodeURIComponent(requestId)}/dismiss`, { method: "DELETE" }),
     cancel: ({ request_id: requestId, reason }) => request(`requests/${encodeURIComponent(requestId)}/cancel`, { method: "POST", payload: { reason: reason || null } }),
-    clarify: ({ request_id: requestId, assessment_id, assessment_version, answer }) => request(`requests/${encodeURIComponent(requestId)}/clarifications`, {
-      method: "POST", payload: { assessment_id, assessment_version, answer },
+    answer: ({ request_id: requestId, information_request_id, option, answer }) => request(`requests/${encodeURIComponent(requestId)}/clarifications`, {
+      method: "POST", payload: { information_request_id, option, answer },
     }),
     subscribe: ({ request_id: requestId, reporter_notification }) => request(`requests/${encodeURIComponent(requestId)}/subscription`, {
       method: "POST", payload: { reporter_notification },

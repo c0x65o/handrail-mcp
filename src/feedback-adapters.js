@@ -112,7 +112,7 @@ export function feedbackOperationAvailable(readiness, definition) {
   if (["followUp", "stopFollowUp"].includes(definition.operation)) {
     return (definition.surface === "bug" ? discovery?.reporterObservations : discovery?.reporter_observations)?.available === true;
   }
-  if (definition.operation === "clarify") {
+  if (definition.surface === "enhancement" && ["answer", "clarify"].includes(definition.operation)) {
     return discovery?.enhancement_reporting?.workflow?.clarification_response === true;
   }
   if (definition.operation === "subscribe") {
@@ -132,6 +132,7 @@ export async function callFeedbackAdapter(runtime, definition, args) {
   if (!client || !feedbackOperationAvailable(current.readiness, definition)) {
     throw Object.assign(new Error(`${definition.surface} reporter operation is unavailable; refresh discovery.`), { code: `${definition.surface}_reporter_unavailable` });
   }
+  if (["answer", "clarify"].includes(definition.operation)) return client.answer(args);
   if (definition.operation === "followUp") return client.grantObservation(args);
   if (definition.operation === "stopFollowUp") return client.cancelObservation(args.id, args.binding);
   if (definition.operation === "subscribe") return client.subscribe(args);
@@ -157,6 +158,5 @@ export async function callFeedbackAdapter(runtime, definition, args) {
   if (definition.operation === "archive") return client.dismiss({ request_id: args.request_id });
   if (definition.operation === "restore") return client.restore({ request_id: args.request_id });
   if (definition.operation === "cancel") return client.cancel({ request_id: args.request_id, reason: args.reason });
-  if (definition.operation === "clarify") return client.clarify(args);
   throw new Error("Unsupported feedback reporter operation.");
 }

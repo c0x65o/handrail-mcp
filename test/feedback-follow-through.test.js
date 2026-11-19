@@ -15,7 +15,7 @@ import { connectInMemory } from "./helpers.js";
 async function fixture(t) {
   const state = {
     calls: [], status: "needs_clarification", archived: false, dismissed: false,
-    question: { assessment_id: "assessment-current-7", assessment_version: 7, question: "Which accounts?", response_allowed: true },
+    question: { id: "question-7", options: ["Current", "All"], question: "Which accounts?", response_allowed: true },
     answer: null, continuations: 0, subscriptions: new Set(),
     discoveryError: null, routeError: null, mismatch: null, drop: false, malformed: false,
     clarificationAllowed: true, notificationsAvailable: true,
@@ -55,17 +55,17 @@ async function fixture(t) {
     if (!url.pathname.startsWith(`${prefix}${requestId}`)) return fail(bug ? "bug_history_not_found" : "enhancement_request_not_found", 404);
     const suffix = url.pathname.slice(`${prefix}${requestId}`.length);
     if (req.method === "GET" && suffix === "") return send(bug ? { bug: { id: requestId, archived: state.archived } } : {
-      contract_version: "v1", id: requestId, status: state.status, current_assessment_id: state.question.assessment_id,
-      clarification: state.status === "needs_clarification" ? state.question : null, dismissed: state.dismissed,
+      contract_version: "v1", id: requestId, status: state.status,
+      information_request: state.status === "needs_clarification" ? state.question : null, dismissed: state.dismissed,
     });
     if (req.method === "POST" && suffix === "/clarifications" && !bug) {
-      assert.deepEqual(Object.keys(body).sort(), ["answer", "assessment_id", "assessment_version"]);
+      assert.deepEqual(Object.keys(body).sort(), ["answer", "information_request_id"]);
       assert.equal(req.headers["idempotency-key"], undefined);
       const exact = JSON.stringify({ ...body, answer: body.answer.trim() });
       if (state.answer && state.answer !== exact) return fail("enhancement_clarification_conflict", 409);
       const replayed = state.answer === exact;
       if (!replayed && (state.status !== "needs_clarification" || state.archived
-        || body.assessment_id !== state.question.assessment_id || body.assessment_version !== state.question.assessment_version)) {
+        || body.information_request_id !== state.question.id)) {
         return fail("enhancement_clarification_stale", 409);
       }
       if (!replayed) { state.answer = exact; state.continuations++; state.status = "triaging"; }
@@ -104,7 +104,7 @@ async function fixture(t) {
     bug: { enabled: true, apiBaseUrl: `${origin}/api`, projectId: "project-1", environment: "staging", serviceEnvId: "service-env-1", reportToken: "fixture-bug-token", transport: "server" },
     enhancement: { enabled: true, apiUrl: `${origin}/api/enhancement-reporting/v1`, projectId: "project-1", capabilityId: "capability-1", serviceEnvId: "service-env-1", token: "fixture-enhancement-token", contractVersion: "v1" },
   };
-  const connector = await createConnectorServer({ config: { enabled: false }, feedbackConfig, env: {} });
+  const connector = await createConnectorServer({ profile: "extended", config: { enabled: false }, feedbackConfig, env: {} });
   const connected = await connectInMemory(connector.server);
   t.after(() => connected.close());
   const call = async (name, args) => {
@@ -116,14 +116,14 @@ async function fixture(t) {
   };
   const answer = async () => {
     const current = await call(names.enhancementLookup, { request_id: "enhancement-1" });
-    return { request_id: current.id, assessment_id: current.clarification.assessment_id, assessment_version: current.clarification.assessment_version, answer: "Only the current household's accounts." };
+    return { request_id: current.id, information_request_id: current.information_request.id, answer: "Only the current household's accounts." };
   };
   return { state, connected, call, answer, feedbackConfig };
 }
 const consent = { notify_on_resolution: true, consent_version: "v1" };
 const subscriptionCases = [[names.bugSubscribe, "bug-1"], [names.enhancementSubscribe, "enhancement-1"]];
 
-test("current canonical assessment tuple flows through MCP; exact duplicate and conflict retain original identity", async t => {
+test("current canonical question identity flows through MCP; exact duplicate and conflict retain original identity", async t => {
   const f = await fixture(t);
   const input = await f.answer();
   const first = await f.call(names.enhancementClarify, input);
@@ -147,7 +147,7 @@ test("strict new schemas reject missing/blank/stale-shaped input, consent infere
   const tools = (await f.connected.client.listTools()).tools;
   assert.equal(tools.find(x => x.name === names.enhancementClarify).annotations.idempotentHint, true);
   const before = f.state.calls.length;
-  for (const input of [{ ...args, assessment_version: 0 }, { ...args, assessment_version: 1.5 }, { ...args, assessment_id: " " }, { ...args, answer: " " }, { ...args, answer: "a".repeat(4001) }, { request_id: args.request_id, answer: "answer" }, { ...args, run_codex: true }]) {
+  for (const input of [{ request_id: args.request_id, information_request_id: args.information_request_id }, { ...args, assessment_version: 0 }, { ...args, assessment_version: 1.5 }, { ...args, assessment_id: " " }, { ...args, answer: " " }, { ...args, answer: "a".repeat(4001) }, { request_id: args.request_id, answer: "answer" }, { ...args, run_codex: true }]) {
     assert.equal((await f.call(names.enhancementClarify, input)).isError, true);
   }
   for (const [name, request_id] of subscriptionCases) {
@@ -158,12 +158,11 @@ test("strict new schemas reject missing/blank/stale-shaped input, consent infere
   assert.equal(f.state.calls.length, before);
 });
 
-for (const scenario of ["stale-id", "stale-version", "cancelled", "archived", "changed-scope"]) {
+for (const scenario of ["stale-id", "cancelled", "archived", "changed-scope"]) {
   test(`clarification rejects ${scenario} after current lookup`, async t => {
     const f = await fixture(t);
     const input = await f.answer();
-    if (scenario === "stale-id") f.state.question.assessment_id = "new-assessment";
-    if (scenario === "stale-version") f.state.question.assessment_version++;
+    if (scenario === "stale-id") f.state.question.id = "new-question";
     if (scenario === "cancelled") await f.call(names.enhancementCancel, { request_id: input.request_id, reason: "User cancelled" });
     if (scenario === "archived") f.state.archived = true; // Native archive; reporter dismiss is only history visibility.
     if (scenario === "changed-scope") f.state.routeError = { code: "enhancement_clarification_source_changed", status: 409 };
@@ -259,7 +258,7 @@ test("discovery permissions gate new operations and recheck on invocation", asyn
   f.state.notificationsAvailable = false;
   assert.equal((await f.call(names.enhancementClarify, args)).isError, true);
   for (const [name, request_id] of subscriptionCases) assert.equal((await f.call(name, { request_id, reporter_notification: consent })).isError, true);
-  const connector = await createConnectorServer({ config: { enabled: false }, feedbackConfig: f.feedbackConfig, env: {} });
+  const connector = await createConnectorServer({ profile: "extended", config: { enabled: false }, feedbackConfig: f.feedbackConfig, env: {} });
   const connected = await connectInMemory(connector.server);
   t.after(() => connected.close());
   const catalog = (await connected.client.listTools()).tools.map(x => x.name);
@@ -269,7 +268,7 @@ test("discovery permissions gate new operations and recheck on invocation", asyn
 
 test("Streamable HTTP uses only the current request session, never bootstrap feedback session", async t => {
   const f = await fixture(t);
-  const running = await startStreamableHttp({ port: 0, config: { enabled: false }, feedbackConfig: f.feedbackConfig, env: {} });
+  const running = await startStreamableHttp({ profile: "extended", port: 0, config: { enabled: false }, feedbackConfig: f.feedbackConfig, env: {} });
   t.after(() => running.close());
   for (const session of ["known-user-session", "other-session", null]) {
     const client = new Client({ name: "feedback-session-test", version: "1" });

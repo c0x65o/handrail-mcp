@@ -65,7 +65,7 @@ function fakeClient({ enabled = true } = {}) {
 }
 
 test("disabled/default-deny runtime exposes no tools, resources, or prompts", async () => {
-  const connector = await createConnectorServer({ client: fakeClient({ enabled: false }) });
+  const connector = await createConnectorServer({ profile: "extended", client: fakeClient({ enabled: false }) });
   const connected = await connectInMemory(connector.server);
   assert.deepEqual((await connected.client.listTools()).tools, []);
   assert.deepEqual((await connected.client.listResources()).resources, []);
@@ -75,7 +75,7 @@ test("disabled/default-deny runtime exposes no tools, resources, or prompts", as
 
 test("MCP tools mirror discovery, bind server identity, and report both versions", async () => {
   const client = fakeClient();
-  const connector = await createConnectorServer({ client });
+  const connector = await createConnectorServer({ profile: "extended", client });
   const connected = await connectInMemory(connector.server);
   const tools = (await connected.client.listTools()).tools;
   assert.deepEqual(tools.map((tool) => tool.name), Object.values(TOOL_NAMES));
@@ -132,7 +132,7 @@ test("MCP tools mirror discovery, bind server identity, and report both versions
 
 test("resources and prompts are descriptors only; every body is fetched centrally", async () => {
   const client = fakeClient();
-  const connector = await createConnectorServer({ client });
+  const connector = await createConnectorServer({ profile: "extended", client });
   const connected = await connectInMemory(connector.server);
   const resources = (await connected.client.listResources()).resources;
   assert.equal(resources.length, 1);
@@ -150,7 +150,7 @@ test("resources and prompts are descriptors only; every body is fetched centrall
 
 test("discovery operation allowlist removes unadvertised tools", async () => {
   const limited = { ...discovery, operations: ["discover", "lookup"] };
-  const connector = await createConnectorServer({ client: fakeClient(), discovery: limited });
+  const connector = await createConnectorServer({ profile: "extended", client: fakeClient(), discovery: limited });
   const connected = await connectInMemory(connector.server);
   assert.deepEqual((await connected.client.listTools()).tools.map((tool) => tool.name), [TOOL_NAMES.discover, TOOL_NAMES.lookup]);
   await connected.close();

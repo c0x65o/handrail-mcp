@@ -13,16 +13,16 @@ const fetch=async (url, init) => {
     : {...(bug?{}:{contract_version:'v1'}),notification_subscription:{active:true,created:true,recipient_hint:'u***@example.test',subscribed_at:'2026-10-02T00:00:00.000Z'}};
   return new Response(JSON.stringify(body),{headers:{'content-type':'application/json'}});
 };
-const {server}=await createConnectorServer({config:{enabled:false},env:{},feedbackConfig:{enabled:true,sessionToken:'fixture-only',fetch,
+const {server}=await createConnectorServer({profile:'extended',config:{enabled:false},env:{},feedbackConfig:{enabled:true,sessionToken:'fixture-only',fetch,
   bug:{enabled:true,apiBaseUrl:'https://fixture.invalid/api',projectId:'project',environment:'staging',serviceEnvId:'runtime',reportToken:'fixture-only',transport:'server'},
   enhancement:{enabled:true,apiUrl:'https://fixture.invalid/api/enhancement-reporting/v1',projectId:'project',capabilityId:'capability',serviceEnvId:'runtime',token:'fixture-only',contractVersion:'v1'}}});
 const [clientSide,serverSide]=InMemoryTransport.createLinkedPair();
 const client=new Client({name:'installed-consumer',version:'1'});
 await server.connect(serverSide); await client.connect(clientSide);
 const catalog=(await client.listTools()).tools;
-assert.equal(catalog.length,16); assert.equal(FEEDBACK_TOOL_DEFINITIONS.length,16);
+assert.equal(catalog.length, FEEDBACK_TOOL_DEFINITIONS.length - 4); // observation capability unavailable
 for (const name of [names.bugSubscribe,names.enhancementSubscribe,names.enhancementClarify]) assert.ok(catalog.some(t=>t.name===name));
-const answer=await client.callTool({name:names.enhancementClarify,arguments:{request_id:'enhancement',assessment_id:'current',assessment_version:7,answer:'current household'}});
+const answer=await client.callTool({name:names.enhancementClarify,arguments:{request_id:'enhancement',information_request_id:'current',answer:'current household'}});
 assert.equal(answer.structuredContent.answered,true);
 for (const name of [names.bugSubscribe,names.enhancementSubscribe]) {
   const subscription=await client.callTool({name,arguments:{request_id:'report',reporter_notification:{notify_on_resolution:true}}});

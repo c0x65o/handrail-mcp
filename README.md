@@ -28,6 +28,7 @@ returning credentials.
 The separate developer Work Request compatibility surface uses these values:
 
 ```text
+HANDRAIL_MCP_PROFILE=extended
 HANDRAIL_ASSISTANT_BRIDGE_ENABLED=true
 HANDRAIL_ASSISTANT_BRIDGE_API_URL=https://handrail.example/api/assistant-change-bridge/v1
 HANDRAIL_ASSISTANT_BRIDGE_VERSION=v1
@@ -66,12 +67,12 @@ The supported standard transports are stdio and stateless Streamable HTTP.
 HTTP binds to loopback by default; authentication and network exposure remain
 the host deployment's responsibility.
 
-Reporter readiness decides which customer feedback tools are registered:
-
-- `handrail_feedback_v2_discover`
-- `handrail_bug_reporter_v1_submit`, `list`, `lookup`, `archive`, `restore`, `subscribe`
-- `handrail_enhancement_reporter_v1_submit`, `list`, `lookup`,
-  `release_status`, `archive`, `restore`, `cancel`, `clarify`, `subscribe`
+The default `feedback-only` profile exposes discovery and, for each ready reporter,
+submit, own list, own lookup, answer, follow_up and stop_follow_up. Select it
+explicitly with `createConnectorServer({ profile: "feedback-only", ... })` or
+`HANDRAIL_MCP_PROFILE=feedback-only`. Opt into `extended` for archive, restore,
+subscribe, enhancement clarify (answer alias), cancel and release status.
+Developer tools additionally require the enabled, authenticated Assistant Bridge.
 
 Bug tools call the canonical Bug Reporting API, so accepted reports create or
 deduplicate canonical `pm_bugs` and then enter existing classification,
@@ -90,11 +91,11 @@ connections. Clarify is advertised only when canonical discovery reports
 email). These flags are checked again at invocation. The canonical route remains
 the authority for current ownership, source revision, credential and request state.
 
-`handrail_enhancement_reporter_v1_clarify` accepts
-`{ request_id, assessment_id, assessment_version, answer }`. Read the current
-`clarification` from enhancement lookup and require `response_allowed: true`.
-The version is a positive safe integer and the nonblank answer is at most 4,000
-characters. Preserve the request/assessment/version/answer for an exact retry.
+Both reporters' `answer` tools accept `{ request_id, information_request_id, option?, answer? }`.
+Copy the open `information_request.id` from list or lookup. Supply an offered option,
+a written answer (up to 4,000 characters), or both. Preserve these values for an exact retry.
+Observation reads include the open question in `record.information_request`; answer
+through the foreground connector with the reporter's current session.
 Conflict or stale errors require a fresh lookup and user input for the current
 question; never replace work or reuse an answer for changed scope automatically.
 An `answered: true` response can include a warning that the saved answer's

@@ -101,9 +101,12 @@ function promptMessages(response) {
 }
 
 export async function createConnectorServer(options = {}) {
-  const client = options.client || new HandrailClient(options.config, options.env);
+  const profile = options.profile ?? (options.env ?? process.env).HANDRAIL_MCP_PROFILE ?? "feedback-only";
+  if (!["feedback-only", "extended"].includes(profile)) throw new Error("Unknown Handrail MCP profile.");
+  const extended = profile === "extended";
+  const client = options.client || new HandrailClient(extended ? options.config : {}, extended ? options.env : {});
   const config = client.getConfig();
-  const discovery = config.enabled ? (options.discovery || await client.discover()) : null;
+  const discovery = extended && config.enabled ? (options.discovery || await client.discover()) : null;
   const feedbackRuntime = options.feedbackRuntime || await loadFeedbackRuntime({
     config: {
       ...(options.feedbackConfig || {}),
@@ -125,7 +128,7 @@ export async function createConnectorServer(options = {}) {
   server.registerResource("_handrail_disabled", "handrail://disabled", {}, async () => ({ contents: [] })).disable();
   server.registerPrompt("_handrail_disabled", {}, async () => ({ messages: [] })).disable();
 
-  if (config.enabled) {
+  if (extended && config.enabled) {
     const operations = new Set(discovery.operations || []);
     for (const definition of TOOL_DEFINITIONS) {
       if (!operations.has(definition.operation)) continue;
@@ -151,17 +154,20 @@ export async function createConnectorServer(options = {}) {
 
   if (feedbackRuntime.requested) {
     for (const definition of FEEDBACK_TOOL_DEFINITIONS) {
+      if (!extended && !["discover", "submit", "list", "lookup", "answer", "followUp", "stopFollowUp"].includes(definition.operation)) continue;
       if (definition.surface !== "feedback" && !feedbackOperationAvailable(feedbackRuntime.readiness?.reporters[definition.surface], definition)) continue;
       server.registerTool(definition.name, {
         title: definition.title,
         description: definition.description,
-        inputSchema: definition.strict ? z.strictObject(definition.schema) : definition.schema,
+        inputSchema: ["answer", "clarify"].includes(definition.operation)
+          ? z.strictObject(definition.schema).refine(input => input.option || input.answer, "Choose an option or write an answer.")
+          : definition.strict ? z.strictObject(definition.schema) : definition.schema,
         annotations: {
           readOnlyHint: definition.readOnly === true,
           idempotentHint: definition.readOnly === true
             || definition.surface === "bug" && definition.operation === "submit"
             || definition.surface === "enhancement" && definition.operation === "submit"
-            || ["archive", "restore", "clarify", "subscribe"].includes(definition.operation),
+            || ["archive", "restore", "answer", "clarify", "subscribe"].includes(definition.operation),
           destructiveHint: definition.operation === "cancel",
           openWorldHint: false,
         },

@@ -8,6 +8,12 @@ const observation = {
   expires_at: z.string().datetime().optional(),
 };
 const requestId = { request_id: z.string().min(1).max(160) };
+const answerSchema = {
+  ...requestId,
+  information_request_id: z.string().trim().min(1).max(160),
+  option: z.string().trim().min(1).max(200).optional(),
+  answer: z.string().trim().min(1).max(4000).optional(),
+};
 const subscription = {
   ...requestId,
   reporter_notification: z.strictObject({
@@ -25,6 +31,7 @@ export const FEEDBACK_TOOL_NAMES = Object.freeze({
   discover: "handrail_feedback_v2_discover",
   bugSubmit: "handrail_bug_reporter_v1_submit",
   bugList: "handrail_bug_reporter_v1_list",
+  bugAnswer: "handrail_bug_reporter_v1_answer",
   bugLookup: "handrail_bug_reporter_v1_lookup",
   bugArchive: "handrail_bug_reporter_v1_archive",
   bugRestore: "handrail_bug_reporter_v1_restore",
@@ -33,6 +40,7 @@ export const FEEDBACK_TOOL_NAMES = Object.freeze({
   bugSubscribe: "handrail_bug_reporter_v1_subscribe",
   enhancementSubmit: "handrail_enhancement_reporter_v1_submit",
   enhancementList: "handrail_enhancement_reporter_v1_list",
+  enhancementAnswer: "handrail_enhancement_reporter_v1_answer",
   enhancementLookup: "handrail_enhancement_reporter_v1_lookup",
   enhancementReleaseStatus: "handrail_enhancement_reporter_v1_release_status",
   enhancementArchive: "handrail_enhancement_reporter_v1_archive",
@@ -89,11 +97,8 @@ export const FEEDBACK_TOOL_DEFINITIONS = Object.freeze([
   { surface: "enhancement", operation: "archive", name: FEEDBACK_TOOL_NAMES.enhancementArchive, title: "Archive my Handrail enhancement", description: "Hide an enhancement from this principal's active history without changing its canonical lifecycle.", schema: requestId },
   { surface: "enhancement", operation: "restore", name: FEEDBACK_TOOL_NAMES.enhancementRestore, title: "Restore my Handrail enhancement", description: "Restore a principal-scoped enhancement history item.", schema: requestId },
   { surface: "enhancement", operation: "cancel", name: FEEDBACK_TOOL_NAMES.enhancementCancel, title: "Cancel my Handrail enhancement", description: "Request safe cancellation before implementation without deleting the canonical enhancement.", schema: { ...requestId, reason: z.string().max(2_000).optional() } },
-  { surface: "enhancement", operation: "clarify", name: FEEDBACK_TOOL_NAMES.enhancementClarify, title: "Answer my enhancement clarification", description: "Answer the current clarification returned by enhancement lookup, using its assessment_id and assessment_version when response_allowed is true. Exact retries preserve that tuple and answer. This supplies product input, never staff implementation approval. On stale/conflict refresh lookup; never invent a new assessment identity.", schema: {
-    ...requestId,
-    assessment_id: z.string().min(1).refine((value) => value.trim().length > 0, "Assessment ID must not be blank"),
-    assessment_version: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-    answer: z.string().min(1).max(4_000).refine((value) => value.trim().length > 0, "Answer must not be blank"),
-  }, strict: true },
+  { surface: "bug", operation: "answer", name: FEEDBACK_TOOL_NAMES.bugAnswer, title: "Answer my bug question", description: "Use the open information_request.id from owned history and supply an offered option and/or a written answer.", schema: answerSchema, strict: true },
+  { surface: "enhancement", operation: "answer", name: FEEDBACK_TOOL_NAMES.enhancementAnswer, title: "Answer my enhancement question", description: "Use the open information_request.id from owned history and supply an offered option and/or a written answer.", schema: answerSchema, strict: true },
+  { surface: "enhancement", operation: "clarify", name: FEEDBACK_TOOL_NAMES.enhancementClarify, title: "Answer my enhancement question", description: "Use the open information_request.id from owned history and supply an offered option and/or a written answer.", schema: answerSchema, strict: true },
   { surface: "enhancement", operation: "subscribe", name: FEEDBACK_TOOL_NAMES.enhancementSubscribe, title: "Subscribe to my Handrail enhancement", description: "With explicit consent, subscribe the verified Known User's configured email to the canonical fixed notification. Returns consent status, not delivery readiness or background authorization.", schema: subscription, strict: true },
 ]);

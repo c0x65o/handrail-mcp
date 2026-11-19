@@ -5,7 +5,7 @@ import {
 } from "@handrail/mcp/feedback";
 
 const clarification: EnhancementClarificationInput = {
-  request_id: "enhancement-1", assessment_id: "assessment-7", assessment_version: 7, answer: "Current household",
+  request_id: "enhancement-1", information_request_id: "question-7", answer: "Current household",
 };
 const subscription: FeedbackSubscriptionInput = {
   request_id: clarification.request_id, reporter_notification: { notify_on_resolution: true },

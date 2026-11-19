@@ -2,14 +2,9 @@ import type { ZodType } from "zod/v4";
 
 /** Canonical reporter arguments. Identity and runtime credentials are host-owned. */
 export interface FeedbackRequestInput { request_id: string }
-export interface EnhancementClarificationInput extends FeedbackRequestInput {
-  /** Copy from the current lookup clarification; never manufacture or advance it. */
-  assessment_id: string;
-  /** Positive safe integer from the same clarification. */
-  assessment_version: number;
-  /** Nonblank, at most 4,000 characters; preserve for an exact retry. */
-  answer: string;
-}
+export type FeedbackAnswerInput = FeedbackRequestInput & { information_request_id: string } &
+  ({ option: string; answer?: string } | { option?: string; answer: string });
+export type EnhancementClarificationInput = FeedbackAnswerInput;
 export interface FeedbackSubscriptionInput extends FeedbackRequestInput {
   reporter_notification: {
     /** Explicit user consent is required. */
@@ -44,6 +39,7 @@ export const FEEDBACK_TOOL_NAMES: Readonly<{
   discover: "handrail_feedback_v2_discover";
   bugSubmit: "handrail_bug_reporter_v1_submit";
   bugList: "handrail_bug_reporter_v1_list";
+  bugAnswer: "handrail_bug_reporter_v1_answer";
   bugLookup: "handrail_bug_reporter_v1_lookup";
   bugArchive: "handrail_bug_reporter_v1_archive";
   bugRestore: "handrail_bug_reporter_v1_restore";
@@ -52,6 +48,7 @@ export const FEEDBACK_TOOL_NAMES: Readonly<{
   bugSubscribe: "handrail_bug_reporter_v1_subscribe";
   enhancementSubmit: "handrail_enhancement_reporter_v1_submit";
   enhancementList: "handrail_enhancement_reporter_v1_list";
+  enhancementAnswer: "handrail_enhancement_reporter_v1_answer";
   enhancementLookup: "handrail_enhancement_reporter_v1_lookup";
   enhancementReleaseStatus: "handrail_enhancement_reporter_v1_release_status";
   enhancementArchive: "handrail_enhancement_reporter_v1_archive";
@@ -74,7 +71,7 @@ export const DEVELOPER_TOOL_NAMES: Readonly<{
 }>;
 export interface FeedbackToolDefinition {
   surface: "feedback" | "bug" | "enhancement";
-  operation: "followUp" | "stopFollowUp" | "discover" | "submit" | "list" | "lookup" | "releaseStatus" | "archive" | "restore" | "cancel" | "clarify" | "subscribe";
+  operation: "followUp" | "stopFollowUp" | "discover" | "submit" | "list" | "lookup" | "releaseStatus" | "archive" | "restore" | "cancel" | "clarify" | "answer" | "subscribe";
   name: typeof FEEDBACK_TOOL_NAMES[keyof typeof FEEDBACK_TOOL_NAMES];
   title: string;
   description: string;

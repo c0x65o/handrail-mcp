@@ -98,7 +98,7 @@ async function canonicalFixtureEndpoint() {
 
 test("one canonical v1 HTTP fixture conforms across discovery, submit, lookup, clarification, cancellation, resources, and prompts", async () => {
   const fixture = await canonicalFixtureEndpoint();
-  const connector = await createConnectorServer({ config: { ...enabledConfig, apiUrl: fixture.baseUrl } });
+  const connector = await createConnectorServer({ profile: "extended", config: { ...enabledConfig, apiUrl: fixture.baseUrl } });
   const connected = await connectInMemory(connector.server);
   try {
     const submitArgs = {

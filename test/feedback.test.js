@@ -219,7 +219,7 @@ test("reporter submits use canonical adapters and cannot carry execution authori
 
 test("direct Work Request compatibility is separately named when feedback mode is active", async () => {
   const { connected, tools } = await listed({
-    client: enabledBridge(),
+    profile: "extended", client: enabledBridge(),
     discovery,
     feedbackConfig: { enabled: true, sessionToken: "session-1" },
   });
@@ -228,4 +228,54 @@ test("direct Work Request compatibility is separately named when feedback mode i
   assert.equal(names.includes(DEVELOPER_TOOL_NAMES.submit), true);
   assert.equal(names.includes(FEEDBACK_TOOL_NAMES.discover), true);
   await connected.close();
+});
+
+test("feedback-only registers exactly the conversation tools and sends scoped answers", async (t) => {
+  const transport = feedbackFetch([], {
+    bugPolicy: bugPolicy({ reporter_observations: { available: true } }),
+    enhancementDiscovery: enhancementDiscovery({
+      reporter_observations: { available: true },
+      enhancement_reporting: { enabled: true, workflow: { clarification_response: true } },
+    }),
+  });
+  const question = { information_request_id: "q1", question: "Which view?", options: ["Current", "All"] };
+  const fetch = async (url, init) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/policy") || path.endsWith("/discovery")) return transport(url, init);
+    const bug = path.startsWith("/api/mobile-bug-reports/");
+    const record = { id: "r1", information_request: question };
+    if (init.method === "GET") {
+      if (bug) return json(path.endsWith("/mine") ? { bugs: [record] } : { bug: record });
+      return json({ contract_version: "v1", ...(path.endsWith("/requests") ? { requests: [record] } : record) });
+    }
+    assert.equal(init.method, "POST");
+    assert.equal(init.headers[bug ? "x-handrail-application-session-token" : "x-handrail-application-session"], "session-1");
+    assert.equal(path, bug ? "/api/mobile-bug-reports/bugs/r1/information-requests/q1/answer"
+      : "/api/enhancement-reporting/v1/requests/r1/clarifications");
+    assert.deepEqual(JSON.parse(init.body), bug ? { option: "Current" }
+      : { information_request_id: "q1", option: "Current", answer: "At login" });
+    return json({ contract_version: "v1", answered: true });
+  };
+  const { connected, tools } = await listed({
+    client: { getConfig: () => ({ enabled: true }), discover: () => assert.fail("developer discovery") },
+    feedbackConfig: { ...base, fetch }, env: {},
+  });
+  t.after(() => connected.close());
+  const expected = [FEEDBACK_TOOL_NAMES.discover];
+  for (const kind of ["bug", "enhancement"]) {
+    for (const operation of ["Submit", "List", "Lookup", "Answer", "FollowUp", "StopFollowUp"]) {
+      expected.push(FEEDBACK_TOOL_NAMES[kind + operation]);
+    }
+    const call = async (op, args) => (await connected.client.callTool({
+      name: FEEDBACK_TOOL_NAMES[kind + op], arguments: args,
+    })).structuredContent;
+    const list = await call("List", {});
+    const [item] = list.bugs ?? list.requests;
+    const lookup = await call("Lookup", { request_id: item.id });
+    assert.deepEqual(item.information_request, question);
+    assert.deepEqual(lookup.information_request, question);
+    assert.equal((await call("Answer", { request_id: item.id, information_request_id: question.information_request_id,
+      option: "Current", ...(kind === "enhancement" ? { answer: "At login" } : {}) })).answered, true);
+  }
+  assert.deepEqual(tools.map(tool => tool.name).sort(), expected.sort());
 });
