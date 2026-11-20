@@ -21,6 +21,8 @@ function reporterConfig(overrides, env) {
   );
   return {
     requested: explicitlyRequested || bugRequested || enhancementRequested,
+    feedbackProof: overrides.feedbackProof === true,
+    subject: text(overrides.subject),
     sessionToken: text(overrides.sessionToken ?? overrides.applicationSessionToken),
     bug: {
       requested: bugRequested,
@@ -34,6 +36,7 @@ function reporterConfig(overrides, env) {
     },
     enhancement: {
       requested: enhancementRequested,
+      environment: text(enhancement.environment),
       apiUrl: text(enhancement.apiUrl ?? env.HANDRAIL_ENHANCEMENT_REPORTER_API_URL),
       projectId: text(enhancement.projectId ?? env.HANDRAIL_ENHANCEMENT_REPORTER_PROJECT_ID),
       capabilityId: text(enhancement.capabilityId ?? env.HANDRAIL_ENHANCEMENT_REPORTER_CAPABILITY_ID),

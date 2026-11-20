@@ -117,3 +117,5 @@ export const FEEDBACK_TOOL_DEFINITIONS = Object.freeze([
   { surface: "enhancement", operation: "clarify", name: FEEDBACK_TOOL_NAMES.enhancementClarify, title: "Answer my enhancement question", description: "Use the open information_request.id from owned history and supply an offered option and/or a written answer.", schema: answerSchema, strict: true },
   { surface: "enhancement", operation: "subscribe", name: FEEDBACK_TOOL_NAMES.enhancementSubscribe, title: "Subscribe to my Handrail enhancement", description: "With explicit consent, subscribe the verified Known User's configured email to the canonical fixed notification. Returns consent status, not delivery readiness or background authorization.", schema: subscription, strict: true },
 ]);
+
+export { createAppFeedbackTools } from "./app-feedback.js";

@@ -35,13 +35,15 @@ async function bugRuntime(config) {
   const missingConfig = missing(config, ["apiBaseUrl", "projectId", "environment", "reportToken", "serviceEnvId"]);
   if (config.transport && config.transport !== "server") missingConfig.push("server_transport");
   if (missingConfig.length) return { readiness: unavailable(true, "incomplete_runtime_config", missingConfig), client: null };
-  if (!config.sessionToken) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
+  if (!config.sessionToken && !config.feedbackProof) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
   try {
     const client = createBugFeedbackClient(config);
     const discovery = await client.discoverPolicy();
     if (!discovery) return { readiness: unavailable(true, "canonical_discovery_unavailable"), client: null };
     if (
       discovery.identityVerified !== true
+      || (config.feedbackProof && (discovery.appFeedback?.authentication_method !== "verified_app_invocation"
+        || discovery.appFeedback?.subject !== config.subject || discovery.appFeedback?.service_env_id !== config.serviceEnvId))
       || discovery.projectId !== config.projectId
       || discovery.environment !== config.environment
     ) {
@@ -58,7 +60,7 @@ async function enhancementRuntime(config) {
   const missingConfig = missing(config, ["apiUrl", "projectId", "capabilityId", "serviceEnvId", "token", "contractVersion"]);
   if (config.contractVersion && config.contractVersion !== "v1") missingConfig.push("compatible_contract_version");
   if (missingConfig.length) return { readiness: unavailable(true, "incomplete_runtime_config", missingConfig), client: null };
-  if (!config.sessionToken) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
+  if (!config.sessionToken && !config.feedbackProof) return { readiness: unavailable(true, "verified_session_required", ["application_session"]), client: null };
   try {
     const client = createEnhancementFeedbackClient(config);
     const discovery = await client.discover();
@@ -66,7 +68,8 @@ async function enhancementRuntime(config) {
     if (
       discovery?.enhancement_reporting?.enabled !== true
       || discovery?.principal?.authenticated !== true
-      || discovery?.principal?.authentication_method !== "known_users_direct_session"
+      || discovery?.principal?.authentication_method !== (config.feedbackProof ? "verified_app_invocation" : "known_users_direct_session")
+      || (config.feedbackProof && (discovery.principal.subject !== config.subject || capability.environment !== config.environment))
       || capability.id !== config.capabilityId
       || capability.project_id !== config.projectId
       || capability.service_env_id !== config.serviceEnvId
@@ -89,8 +92,8 @@ async function runtimeFromConfig(config) {
     return Object.freeze({ requested: false, config, readiness: null, adapters: Object.freeze({}) });
   }
   const [bug, enhancement] = await Promise.all([
-    bugRuntime({ ...config.bug, sessionToken: config.sessionToken }),
-    enhancementRuntime({ ...config.enhancement, sessionToken: config.sessionToken }),
+    bugRuntime({ ...config.bug, sessionToken: config.sessionToken, subject: config.subject, feedbackProof: config.feedbackProof }),
+    enhancementRuntime({ ...config.enhancement, sessionToken: config.sessionToken, subject: config.subject, feedbackProof: config.feedbackProof }),
   ]);
   return Object.freeze({
     requested: true,
@@ -98,7 +101,7 @@ async function runtimeFromConfig(config) {
     readiness: Object.freeze({
       contract_version: CONTRACT_VERSION,
       principal: bug.readiness.ready || enhancement.readiness.ready
-        ? { authenticated: true, source: "verified_known_user_discovery" }
+        ? { authenticated: true, source: config.feedbackProof ? "verified_app_invocation" : "verified_known_user_discovery" }
         : { authenticated: false, source: null, session_present: Boolean(config.sessionToken) },
       reporters: Object.freeze({ bug: bug.readiness, enhancement: enhancement.readiness }),
     }),
@@ -127,7 +130,7 @@ export async function callFeedbackAdapter(runtime, definition, args) {
   // Long-lived in-process/stdio connectors must not reuse admission evidence.
   // The canonical route also verifies identity and ownership at mutation time.
   const current = await (definition.surface === "bug" ? bugRuntime : enhancementRuntime)({
-    ...runtime.config[definition.surface], sessionToken: runtime.config.sessionToken,
+    ...runtime.config[definition.surface], sessionToken: runtime.config.sessionToken, subject: runtime.config.subject, feedbackProof: runtime.config.feedbackProof,
   });
   const client = current.client;
   if (!client || !feedbackOperationAvailable(current.readiness, definition)) {

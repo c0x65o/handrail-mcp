@@ -100,3 +100,21 @@ export function createFeedbackObservationClient(options?: { config?: Record<stri
   read(grant: FeedbackObservationGrant): Promise<{ contract_version: "v1"; observation: FeedbackObservationGrant; record: unknown }>;
   cancel(grant: FeedbackObservationGrant): Promise<unknown>;
 };
+
+export interface AppFeedbackUser {
+  /** Present only for the current verified browser session. Never supply an OAuth bearer here. */
+  sessionToken?: string;
+  principalId: string;
+  tenantId: string;
+}
+export interface AppFeedbackTool<C> {
+  name: string;
+  description: string;
+  readOnly: boolean;
+  schema: import("zod/v4").ZodObject;
+  call(context: C, input: unknown): Promise<Record<string, unknown>>;
+}
+export function createAppFeedbackTools<C>(options: {
+  config: { bug?: Record<string, unknown>; enhancement?: Record<string, unknown>; fetch?: typeof fetch; issuerKey?: string };
+  getVerifiedUser(context: C): AppFeedbackUser | null | Promise<AppFeedbackUser | null>;
+}): AppFeedbackTool<C>[];

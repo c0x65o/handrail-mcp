@@ -244,3 +244,23 @@ hides these tools for an old credential; runtime reconciliation never broadens
 its allowlist silently. Publish through canonical Git operations, then install
 from a public HTTPS full40 SHA with a matching lockfile. Source-fixture checks
 are not evidence of installed or deployed support.
+
+### Register customer feedback in an application's MCP
+
+The server export `createAppFeedbackTools` in `@handrail/mcp/feedback` returns
+the bug and enhancement submit, list, lookup and answer definitions. Register
+each definition's name, description, schema and call method in the application's
+ordinary tool registry, under its existing read and outbound-write permissions.
+Both in-app chat and OAuth connectors use this registry.
+
+Supply the existing server reporter configuration for each enabled surface,
+including its project, service environment and environment. Supply one
+`getVerifiedUser(context)` hook. Return the stable Known Users identifier as
+`principalId` and the current authorized tenant as `tenantId`. For an in-app
+request the hook may also supply its current application's `sessionToken`.
+For an already validated app MCP grant, return just the identifiers. OAuth
+access tokens stay with their issuing application. The connector signs that
+invocation with the service's separately bound server-only
+`HANDRAIL_FEEDBACK_ISSUER_KEY`, and Handrail checks the user and ownership.
+Missing verification fails the operation. Clients cannot set identity or routing
+through the tool schema.

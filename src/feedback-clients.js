@@ -181,6 +181,7 @@ export function createBugFeedbackClient(config) {
         projectId: body.project_id,
         environment: clean(body.environment, 100).toLowerCase(),
         identityVerified: reporter.identity_verified === true,
+        ...(config.feedbackProof ? {appFeedback: body.app_feedback} : {}),
         accessLevel: clean(reporter.access_level, 80) || null,
         role: clean(reporter.role, 80) || null,
         askOptions: Array.isArray(body.ask_options) ? body.ask_options : [],
@@ -206,7 +207,7 @@ export function createBugFeedbackClient(config) {
       for (const [key, value] of Object.entries(payload)) {
         if (value === undefined) delete payload[key];
       }
-      const { body, status } = await request(reports, { method: "POST", payload });
+      const { body, status } = await request(config.feedbackProof ? scopedUrl(reports, "app-feedback") : reports, { method: "POST", payload });
       return {
         status: "submitted",
         statusCode: status,
