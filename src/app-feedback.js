@@ -17,6 +17,7 @@ export function createAppFeedbackTools({ config, getVerifiedUser }) {
     const schema = z.strictObject(tool.schema);
     return Object.freeze({
       name: tool.name, description: tool.description, readOnly: tool.readOnly === true, schema,
+      inputSchema: z.toJSONSchema(schema, {io: "input"}),
       async call(context, input) {
         const args = schema.parse(input);
         const user = await getVerifiedUser(context);

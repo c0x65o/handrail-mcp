@@ -112,6 +112,7 @@ export interface AppFeedbackTool<C> {
   description: string;
   readOnly: boolean;
   schema: import("zod/v4").ZodObject;
+  inputSchema: Record<string, unknown>;
   call(context: C, input: unknown): Promise<Record<string, unknown>>;
 }
 export function createAppFeedbackTools<C>(options: {
