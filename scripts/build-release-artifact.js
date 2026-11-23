@@ -12,12 +12,11 @@ const execFileAsync = promisify(execFile);
 
 const expectedTag = `v${packageJson.version}`;
 const expectedArtifact = `handrail-mcp-${packageJson.version}.tgz`;
-const expectedGitPin = `github:c0x65o/handrail-mcp#${expectedTag}`;
 if (packageJson.version !== release.connector_version) throw new Error("Package and release versions do not match.");
 if (release.api_contract_version !== "v1") throw new Error("Release API contract version must be v1.");
 if (release.immutable_release_tag !== expectedTag) throw new Error("Release tag does not match the package version.");
 if (release.artifact !== expectedArtifact) throw new Error("Release artifact name does not match the package version.");
-if (release.approved_git_pin !== expectedGitPin) throw new Error("Release Git pin does not match the immutable tag.");
+if (release.approved_git_pin !== null) throw new Error("A release candidate must leave the approved Git pin unset.");
 if (release.npm_publication_status !== "absent" || release.approved_package_pin != null) {
   throw new Error("An unpublished candidate must not claim an npm registry pin.");
 }

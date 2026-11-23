@@ -5,9 +5,11 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 
 import { createConnectorServer } from "./server.js";
 
-function jsonRpcError(res, status, message) {
+import { MCP_BODY_LIMIT_BYTES } from "./feedback-attachments.js";
+
+function jsonRpcError(res, status, message, code = -32000) {
   res.writeHead(status, { "content-type": "application/json" });
-  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message }, id: null }));
+  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
 }
 
 export async function startStdio(options = {}) {
@@ -38,6 +40,27 @@ export async function startStreamableHttp({ host = "127.0.0.1", port = 3000, pat
       jsonRpcError(res, 405, "Method not allowed.");
       return;
     }
+    if (Number(req.headers["content-length"]) > MCP_BODY_LIMIT_BYTES) {
+      jsonRpcError(res, 413, "MCP request exceeds 25 MiB.");
+      return;
+    }
+    let body;
+    try {
+      const chunks = [];
+      let bytes = 0;
+      for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+        bytes += chunk.length;
+        if (bytes > MCP_BODY_LIMIT_BYTES) {
+          jsonRpcError(res, 413, "MCP request exceeds 25 MiB.");
+          return;
+        }
+        chunks.push(chunk);
+      }
+      body = JSON.parse(Buffer.concat(chunks, bytes).toString("utf8"));
+    } catch {
+      jsonRpcError(res, 400, "Invalid JSON.", -32700);
+      return;
+    }
     const applicationSession = String(req.headers["x-handrail-application-session"] || "").trim();
     const feedbackOptions = {
       feedbackRuntime: undefined,
@@ -56,7 +79,7 @@ export async function startStreamableHttp({ host = "127.0.0.1", port = 3000, pat
     active.add({ connector, transport });
     try {
       await connector.server.connect(transport);
-      await transport.handleRequest(req, res);
+      await transport.handleRequest(req, res, body);
     } catch {
       if (!res.headersSent) jsonRpcError(res, 500, "Internal server error.");
     } finally {

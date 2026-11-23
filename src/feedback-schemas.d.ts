@@ -115,7 +115,17 @@ export interface AppFeedbackTool<C> {
   inputSchema: Record<string, unknown>;
   call(context: C, input: unknown): Promise<Record<string, unknown>>;
 }
+export const MCP_BODY_LIMIT_BYTES: number;
+export interface FeedbackUploads<C> {
+  handle(request: Request, context: C): Promise<Response>;
+  resolve(ids: string[], user: AppFeedbackUser): { filename: string; data_url: string }[];
+}
+export function createFeedbackUploads<C>(options: {
+  getVerifiedUser(context: C): AppFeedbackUser | null | Promise<AppFeedbackUser | null>;
+}): FeedbackUploads<C>;
 export function createAppFeedbackTools<C>(options: {
+  attachmentTools?: boolean;
+  uploads?: FeedbackUploads<C>;
   config: { bug?: Record<string, unknown>; enhancement?: Record<string, unknown>; fetch?: typeof fetch; issuerKey?: string };
   getVerifiedUser(context: C): AppFeedbackUser | null | Promise<AppFeedbackUser | null>;
 }): AppFeedbackTool<C>[];

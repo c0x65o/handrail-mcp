@@ -1,5 +1,8 @@
 import * as z from "zod/v4";
 
+import { attachmentBatch } from "./feedback-attachments.js";
+
+export { createFeedbackUploads, MCP_BODY_LIMIT_BYTES } from "./feedback-attachments.js";
 export { createFeedbackObservationClient } from "./feedback-observations.js";
 const observation = {
   id: z.string().uuid().optional().describe("Host-supplied durable follow-up identity."),
@@ -7,7 +10,6 @@ const observation = {
     user_ref: z.string().min(1).max(512), tenant_ref: z.string().min(1).max(512), conversation_id: z.string().min(1).max(512) }).optional(),
   expires_at: z.string().datetime().optional(),
 };
-const attachmentBatch = z.array(z.strictObject({ filename: z.string().min(1).max(160), data_url: z.string().max(6990600).describe("Base64 data URL with the matching document or image MIME type.") })).min(1).max(4);
 const requestId = { request_id: z.string().min(1).max(160) };
 const answerSchema = {
   ...requestId,

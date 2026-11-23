@@ -1,6 +1,6 @@
 {
   "name": "@handrail/mcp",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Handrail MCP connector with independent canonical bug and enhancement feedback transports",
   "type": "module",
   "license": "UNLICENSED",
@@ -22,6 +22,7 @@
   "files": [
     "src",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "RELEASE.json"
   ],

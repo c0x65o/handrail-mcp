@@ -2,12 +2,12 @@
 
 `@handrail/mcp` is the sole project-side MCP connector for Handrail. It exposes
 the versioned central Handrail REST API through standard MCP tools, resources,
-prompts, and transports. The connector is deliberately stateless: Handrail
+prompts, and transports. Handrail
 owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.2.3`. Developer Change API contract: `v1`.
+Current connector version: `0.2.4`. Developer Change API contract: `v1`.
 Customer feedback composition contract: `v2`.
 
 ## Runtime contract
@@ -264,3 +264,62 @@ invocation with the service's separately bound server-only
 `HANDRAIL_FEEDBACK_ISSUER_KEY`, and Handrail checks the user and ownership.
 Missing verification fails the operation. Clients cannot set identity or routing
 through the tool schema.
+
+### Submit evidence inline or by upload ID
+
+Bug and enhancement submit accept up to four files, 5 MiB per file and 15 MiB
+combined, in the existing `attachments: [{ filename, data_url }]` format.
+Use the file's actual MIME type. Handrail validates type, extension and content.
+Reporter discovery must advertise `document_attachments: true`.
+
+The packaged Node HTTP transport accepts 25 MiB JSON bodies. For an app-owned
+`/mcp`, set the proxy, JSON body parser and tool-argument byte limits to at least
+`MCP_BODY_LIMIT_BYTES` (25 MiB) and register the SDK's input schema. In Express,
+use `express.json({ limit: MCP_BODY_LIMIT_BYTES })` on this route before any
+smaller global parser and pass `req.body` to the MCP transport. The upstream
+Handrail submit routes share a 25 MiB JSON parser. A 15 MiB batch occupies about
+20 MiB in base64 plus filenames, MIME headers and the request envelope.
+
+For clients with smaller tool inputs, mount a raw upload handler. The following
+uses a Fetch API request and the app's existing authenticated feedback context.
+
+```js
+import {
+  createAppFeedbackTools, createFeedbackUploads, MCP_BODY_LIMIT_BYTES,
+} from "@handrail/mcp/feedback";
+
+const uploads = createFeedbackUploads({ getVerifiedUser });
+const tools = createAppFeedbackTools({ config, getVerifiedUser, uploads });
+// Register tools in the app's existing MCP registry.
+// Configure the app's /mcp body and tool-input limits with MCP_BODY_LIMIT_BYTES.
+
+// Mount as POST /mcp/feedback/uploads behind the same feedback-write permission.
+// Pass the original streaming Request, before JSON or multipart middleware.
+function handleFeedbackUpload(request, verifiedContext) {
+  return uploads.handle(request, verifiedContext);
+}
+```
+
+POST each file's raw bytes to `/mcp/feedback/uploads?filename=<URL-encoded-name>`
+with the app's normal authentication and the file MIME type as `Content-Type`.
+A 201 response contains `{"upload_id":"..."}`. Pass the IDs as `upload_ids` on
+either submit tool, keeping the usual `event_id` or `idempotency_key` stable
+across exact retries. Inline files and IDs share the same batch limits. The
+SDK resolves IDs for the current tenant and principal and forwards the files
+on the signed submit request. There are no new environment variables. Keep the
+current reporter configuration and server-only `HANDRAIL_FEEDBACK_ISSUER_KEY`
+for app proof.
+
+Create one uploads instance per app binding and share it between the handler
+and tools. The built-in staging store holds up to 32 files (including in-flight
+uploads) per instance. IDs expire after ten minutes and are lost on restart.
+Route uploads and their submits to the same process in a multi-worker app.
+
+### Post-submit evidence
+
+`createAppFeedbackTools({ config, getVerifiedUser, attachmentTools: true })`
+adds the existing add, list and get attachment tool names for each enabled
+reporter. The default is off. Leave it off until Handrail's app-proof route
+map admits all three attachment operations for the surfaces you enable.
+The tools use the caller's existing identity and the reporter's owned routes.
+Submit-time evidence works independently of this option.

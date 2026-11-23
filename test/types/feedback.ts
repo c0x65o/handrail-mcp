@@ -23,3 +23,12 @@ function response(answer: EnhancementClarificationResponse, consent: Enhancement
   return { implementation, active, name, catalog: FEEDBACK_TOOL_DEFINITIONS, noConsent, noVersion, recipient };
 }
 void response;
+
+import { createAppFeedbackTools, createFeedbackUploads, MCP_BODY_LIMIT_BYTES, type AppFeedbackUser } from "@handrail/mcp/feedback";
+const getVerifiedUser = (user: AppFeedbackUser) => user;
+const uploads = createFeedbackUploads({ getVerifiedUser });
+createAppFeedbackTools({ config: {}, getVerifiedUser, uploads, attachmentTools: false });
+function stage(request: Request, user: AppFeedbackUser): Promise<Response> {
+  return uploads.handle(request, user);
+}
+void [stage, MCP_BODY_LIMIT_BYTES];
