@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 
+import { registerProjectSource } from "./project-source.js";
 import { HandrailClient } from "./client.js";
 import { redact } from "./errors.js";
 import { callFeedbackAdapter, feedbackOperationAvailable, loadFeedbackRuntime } from "./feedback-adapters.js";
@@ -132,6 +133,8 @@ export async function createConnectorServer(options = {}) {
   server.registerTool("_handrail_disabled", { inputSchema: {} }, async () => ({ content: [] })).disable();
   server.registerResource("_handrail_disabled", "handrail://disabled", {}, async () => ({ contents: [] })).disable();
   server.registerPrompt("_handrail_disabled", {}, async () => ({ messages: [] })).disable();
+
+  await registerProjectSource(server, options.env ?? process.env, options.config?.sessionToken);
 
   if (extended && config.enabled) {
     const operations = new Set(discovery.operations || []);

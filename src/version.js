@@ -1,5 +1,5 @@
 export const CONNECTOR_NAME = "@handrail/mcp";
-export const CONNECTOR_VERSION = "0.2.4";
+export const CONNECTOR_VERSION = "0.2.5";
 export const API_CONTRACT_VERSION = "v1";
 export const RELEASE_TAG = `v${CONNECTOR_VERSION}`;
 

@@ -7,7 +7,7 @@ owns authentication, authorization, policy, durable request/status/audit data,
 historical PM audit data and the Work Request lifecycle, Knowledge Base content,
 and compatibility.
 
-Current connector version: `0.2.4`. Developer Change API contract: `v1`.
+Current connector version: `0.2.5`. Developer Change API contract: `v1`.
 Customer feedback composition contract: `v2`.
 
 ## Runtime contract
@@ -323,3 +323,17 @@ reporter. The default is off. Leave it off until Handrail's app-proof route
 map admits all three attachment operations for the surfaces you enable.
 The tools use the caller's existing identity and the reporter's owned routes.
 Submit-time evidence works independently of this option.
+
+### Optional committed project source
+
+Set the server-only `HANDRAIL_PROJECT_SOURCE_API_URL` to Handrail's HTTPS
+`/api/project-source/v1` endpoint and `HANDRAIL_PROJECT_SOURCE_TOKEN` to the
+installation's dedicated read credential. Both MCP profiles support this option.
+For Known Users, forward the current application's session with
+`X-Handrail-Application-Session` on Streamable HTTP requests or supply
+`config.sessionToken` when composing a connector for one user. Keep service
+audience credentials on private machine installations. After successful discovery
+the connector offers `handrail_source_tree`, `handrail_source_search` and
+`handrail_source_read`. Follow the returned page offset or line number. The
+grant binds the repository, commit and root. The tools use static Git reads and
+require no Handrail inference.
